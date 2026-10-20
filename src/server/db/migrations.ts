@@ -75,4 +75,39 @@ export const MIGRATIONS: { id: number; name: string; sql: string }[] = [
       );
     `,
   },
+  {
+    id: 2,
+    name: "credit_orders_lifecycle",
+    // Rebuilt rather than altered: SQLite cannot change a CHECK, and no credit order exists yet.
+    // pending → paid (money verified: Zarinpal, or staff for card-to-card) → granted (a Bizin operator posted the
+    // credit); rejected by staff with a note; failed or cancelled at the gateway.
+    sql: `
+      DROP TABLE IF EXISTS credit_order_meta;
+      DROP TABLE credit_orders;
+
+      CREATE TABLE credit_orders (
+        id           TEXT PRIMARY KEY,
+        shop_id      TEXT NOT NULL REFERENCES shops (id) ON DELETE CASCADE,
+        plan_code    TEXT NOT NULL,
+        amount_toman INTEGER NOT NULL CHECK (amount_toman > 0),
+        amount_rial  INTEGER NOT NULL CHECK (amount_rial = amount_toman * 10),
+        status       TEXT NOT NULL DEFAULT 'pending'
+                     CHECK (status IN ('pending', 'paid', 'granted', 'rejected', 'failed', 'cancelled')),
+        method       TEXT NOT NULL CHECK (method IN ('zarinpal', 'card_to_card')),
+        ref          TEXT,
+        authority    TEXT UNIQUE,
+        created_at   TEXT NOT NULL,
+        verified_at  TEXT,
+        granted_at   TEXT,
+        reviewed_by  TEXT,
+        review_note  TEXT,
+        reviewed_at  TEXT,
+        CHECK (status NOT IN ('paid', 'granted') OR verified_at IS NOT NULL),
+        CHECK (status <> 'granted' OR granted_at IS NOT NULL),
+        CHECK (status <> 'rejected' OR (review_note IS NOT NULL AND review_note <> ''))
+      );
+      CREATE INDEX credit_orders_shop ON credit_orders (shop_id, created_at);
+      CREATE INDEX credit_orders_status ON credit_orders (status, created_at);
+    `,
+  },
 ];

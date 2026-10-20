@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 
@@ -49,12 +49,15 @@ const BODY: [string, string][] = [
   ["brand-ink", "card"],
   ["brand-ink", "muted"],
   ["brand-ink", "accent"],
+  ["brand-strong-foreground", "brand-strong"],
 ];
 
 // Large text, icons, focus rings and field borders: 3:1.
 const UI: [string, string][] = [
   ["brand-foreground", "brand"],
   ["brand", "background"],
+  ["brand-strong", "background"],
+  ["brand-strong", "card"],
   ["ring", "background"],
   ["ring", "card"],
   ["input", "background"],
@@ -88,4 +91,18 @@ describe("sepordi theme contrast", () => {
       });
     }
   }
+});
+
+describe("violet fills with text", () => {
+  const src = path.resolve(__dirname, "..");
+  const files = (readdirSync(src, { recursive: true }) as string[]).filter((f) => f.endsWith(".tsx") || (f.endsWith(".ts") && !f.endsWith(".test.ts")));
+
+  it("use bg-brand-strong: no component sets text on the logo violet fill", () => {
+    const offenders = files.filter((f) => /text-brand-foreground|\bbg-brand\b[^"]*\btext-(white|primary-foreground)\b/.test(readFileSync(path.join(src, f), "utf8")));
+    expect(offenders).toEqual([]);
+  });
+
+  it("the brand button variant is the strong fill", () => {
+    expect(readFileSync(path.join(src, "components/ui/button.tsx"), "utf8")).toMatch(/brand: "bg-brand-strong text-brand-strong-foreground /);
+  });
 });

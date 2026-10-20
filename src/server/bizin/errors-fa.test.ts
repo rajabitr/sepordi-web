@@ -27,6 +27,14 @@ describe("errors-fa", () => {
     expect(missing).toEqual([]);
   });
 
+  it("never names the upstream provider to the seller", () => {
+    for (const code of [...documentedCodes(), "text_too_long", "unknown_limit", "price_unit_mismatch", "brand_mode_read_only", "network_error", "not_configured"]) {
+      const m = bizinErrorMessage(code, { max: 1000, max_mb: 8, retry_after_seconds: 3 }) ?? "";
+      expect(m, code).not.toMatch(/بیزین|bizin/i);
+    }
+    expect(bizinErrorMessage("text_too_long", { max: 1000 })).toContain("۱۰۰۰");
+  });
+
   it("fills params in Persian digits", () => {
     expect(bizinErrorMessage("rate_limited", { retry_after_seconds: 12 })).toContain("۱۲");
     expect(bizinErrorMessage("file_too_large", { max_mb: 8 })).toContain("۸");

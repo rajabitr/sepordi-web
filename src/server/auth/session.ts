@@ -3,8 +3,10 @@ import "server-only";
 import { createHash, randomBytes } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { connection } from "next/server";
 import { cache } from "react";
 
+import { normalizeMobile } from "@/lib/phone";
 import { sessions, shops, type ShopRow, type UserRow } from "@/server/db/repo";
 
 export const SESSION_COOKIE = "sp_session";
@@ -61,14 +63,31 @@ export async function destroySession(): Promise<void> {
 export const getSession = cache(async (): Promise<{ user: SessionUser } | null> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token || token.length > 128) return null;
+  // Session expiry compares against the clock, which a runtime prefetch may not read.
+  await connection();
   const user = sessions.userFor(hashToken(token));
   return user ? { user: publicUser(user) } : null;
 });
 
+/**
+ * SEPORDI_ADMIN_PHONES: comma-separated mobiles of sepordi staff, in any common shape. A user whose phone is listed
+ * is staff whatever their row's role, so the first admin needs no SQL.
+ */
+export function isEnvAdmin(phone: string, list: string | undefined = process.env.SEPORDI_ADMIN_PHONES): boolean {
+  const me = normalizeMobile(phone);
+  if (!me || !list) return false;
+  return list.split(",").some((p) => normalizeMobile(p) === me);
+}
+
+/** The one definition of sepordi staff: the admin role, or a phone in SEPORDI_ADMIN_PHONES. */
+export function isAdminUser(user: Pick<SessionUser, "role" | "phone">): boolean {
+  return user.role === "admin" || isEnvAdmin(user.phone);
+}
+
 /** For Route Handlers that answer 401 instead of redirecting. */
 export async function getSeller(): Promise<SellerContext | null> {
   const s = await getSession();
-  if (!s || s.user.role !== "seller") return null;
+  if (!s || isAdminUser(s.user)) return null;
   const shop = shops.byUserId(s.user.id);
   return shop ? { user: s.user, shop } : null;
 }
@@ -77,17 +96,23 @@ export async function getSeller(): Promise<SellerContext | null> {
 export async function requireSeller(): Promise<SellerContext> {
   const s = await getSession();
   if (!s) redirect("/login");
-  if (s.user.role !== "seller") redirect("/admin");
+  if (isAdminUser(s.user)) redirect("/admin");
   const shop = shops.byUserId(s.user.id);
   // A seller whose shop was never provisioned finishes signup first.
   if (!shop) redirect("/register?step=shop");
   return { user: s.user, shop };
 }
 
+/** For staff Route Handlers that answer 401/403 instead of redirecting. */
+export async function getAdmin(): Promise<{ user: SessionUser } | null> {
+  const s = await getSession();
+  return s && isAdminUser(s.user) ? s : null;
+}
+
 /** sepordi staff screens. Anyone else gets the login page. */
 export async function requireAdmin(): Promise<{ user: SessionUser }> {
   const s = await getSession();
   if (!s) redirect("/login");
-  if (s.user.role !== "admin") redirect("/panel");
+  if (!isAdminUser(s.user)) redirect("/panel");
   return s;
 }

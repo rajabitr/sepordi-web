@@ -27,7 +27,7 @@ export function PasswordInput({ strength, className, onChange, value, defaultVal
   const level = passwordStrength(String(value ?? v));
   return (
     <div className="space-y-2">
-      <div className={cn("flex h-10 items-center rounded-field border-line-field border-input bg-field shadow-field pe-1 ps-3 transition-colors focus-within:border-transparent focus-within:ring-2 focus-within:ring-ring/60", className)} dir="ltr">
+      <div className={cn("flex h-11 items-center rounded-field border-line-field border-input bg-field shadow-field ps-3 transition-colors focus-within:border-transparent focus-within:ring-2 focus-within:ring-ring/60", className)} dir="ltr">
         <input
           type={show ? "text" : "password"}
           autoComplete="new-password"
@@ -37,7 +37,7 @@ export function PasswordInput({ strength, className, onChange, value, defaultVal
           className="h-full min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/70"
           {...props}
         />
-        <button type="button" aria-label={show ? "پنهان کردن رمز" : "نمایش رمز"} aria-pressed={show} onClick={() => setShow((s) => !s)} className="flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
+        <button type="button" aria-label={show ? "پنهان کردن رمز" : "نمایش رمز"} aria-pressed={show} onClick={() => setShow((s) => !s)} className="flex size-11 shrink-0 cursor-pointer items-center justify-center rounded-field text-muted-foreground transition-colors hover:bg-accent hover:text-foreground">
           {show ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
         </button>
       </div>

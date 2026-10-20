@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { PanelFrame } from "@/components/panel/shell/panel-frame";
+import { ToastProvider } from "@/components/ui/toast";
 
 export const metadata: Metadata = {
   title: { default: "پنل فروشنده", template: "%s | پنل سپردی" },
@@ -8,5 +9,9 @@ export const metadata: Metadata = {
 };
 
 export default function PanelLayout({ children }: { children: React.ReactNode }) {
-  return <PanelFrame>{children}</PanelFrame>;
+  return (
+    <ToastProvider>
+      <PanelFrame>{children}</PanelFrame>
+    </ToastProvider>
+  );
 }

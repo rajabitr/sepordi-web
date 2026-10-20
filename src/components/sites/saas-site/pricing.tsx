@@ -83,7 +83,7 @@ export function PricingPage() {
                   p.hot ? "border-brand bg-card shadow-[0_30px_60px_-30px_var(--brand)]" : "border-border",
                 )}
               >
-                {p.hot && <span className="absolute -top-3 start-7 rounded-full bg-brand px-3 py-1 text-xs font-semibold text-brand-foreground">محبوب‌ترین</span>}
+                {p.hot && <span className="absolute -top-3 start-7 rounded-full bg-brand-strong px-3 py-1 text-xs font-semibold text-brand-strong-foreground">محبوب‌ترین</span>}
                 <h2 className="text-xl font-bold">{p.name}</h2>
                 <p className="mt-1 text-sm text-muted-foreground">{p.desc}</p>
                 <p className="mt-7 flex items-baseline gap-1.5">

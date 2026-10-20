@@ -44,7 +44,7 @@ export function HomePage() {
         <div aria-hidden className="absolute inset-x-0 -top-24 -z-10 mx-auto h-[28rem] max-w-3xl rounded-full bg-brand/20 blur-3xl" />
         <div className="mx-auto max-w-6xl px-4 pt-16 text-center sm:px-6 sm:pt-24">
           <a href={href("/blog")} className="inline-flex items-center gap-2 rounded-full border border-border bg-card/60 py-1 ps-1 pe-3 text-xs backdrop-blur transition-colors hover:border-foreground/25">
-            <span className="rounded-full bg-brand px-2 py-0.5 font-semibold text-brand-foreground">تازه</span>
+            <span className="rounded-full bg-brand-strong px-2 py-0.5 font-semibold text-brand-strong-foreground">تازه</span>
             نسخه‌ی ۳ با تطبیق خودکار بانک منتشر شد
             <ArrowLeft className="size-3.5 text-muted-foreground" />
           </a>

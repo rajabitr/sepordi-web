@@ -1,0 +1,4 @@
+external_id,variant_external_id,title,sku,description,category,variant_name,price,stock_qty
+tee-classic,tee-classic-m,Classic cotton T-shirt,TS-001,Heavyweight combed cotton,Clothing > T-shirts,M,12500000,14
+tee-classic,tee-classic-l,Classic cotton T-shirt,TS-001,,,L,13500000,9
+mug-ceramic,mug-ceramic,Ceramic mug 350 ml,MG-010,Dishwasher safe,Kitchen > Mugs,,4500000,30

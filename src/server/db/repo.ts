@@ -34,15 +34,27 @@ export interface WebhookEventRow {
   read_at: string | null;
 }
 
+export type CreditOrderStatus = "pending" | "paid" | "granted" | "rejected" | "failed" | "cancelled";
+export type CreditMethod = "zarinpal" | "card_to_card";
+
 export interface CreditOrderRow {
   id: string;
   shop_id: string;
   plan_code: string;
   amount_toman: number;
-  status: "pending" | "paid" | "failed" | "cancelled";
-  method: string;
+  amount_rial: number;
+  status: CreditOrderStatus;
+  method: CreditMethod;
+  /** The seller's transfer reference (card-to-card) or Zarinpal's ref_id once verified. */
   ref: string | null;
+  /** Zarinpal's payment authority. */
+  authority: string | null;
   created_at: string;
+  verified_at: string | null;
+  granted_at: string | null;
+  reviewed_by: string | null;
+  review_note: string | null;
+  reviewed_at: string | null;
 }
 
 const now = () => new Date().toISOString();
@@ -168,27 +180,36 @@ export const webhookEvents = {
 // ---- credit orders ---------------------------------------------------------------------------------------
 
 export const creditOrders = {
-  create(input: { shopId: string; planCode: string; amountToman: number; method: string }): CreditOrderRow {
+  create(input: { shopId: string; planCode: string; amountToman: number; method: CreditMethod; ref?: string | null }): CreditOrderRow {
     const row: CreditOrderRow = {
       id: randomUUID(),
       shop_id: input.shopId,
       plan_code: input.planCode,
       amount_toman: input.amountToman,
+      amount_rial: input.amountToman * 10,
       status: "pending",
       method: input.method,
-      ref: null,
+      ref: input.ref ?? null,
+      authority: null,
       created_at: now(),
+      verified_at: null,
+      granted_at: null,
+      reviewed_by: null,
+      review_note: null,
+      reviewed_at: null,
     };
     getDb()
-      .prepare("INSERT INTO credit_orders (id, shop_id, plan_code, amount_toman, status, method, ref, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
-      .run(row.id, row.shop_id, row.plan_code, row.amount_toman, row.status, row.method, row.ref, row.created_at);
+      .prepare(
+        "INSERT INTO credit_orders (id, shop_id, plan_code, amount_toman, amount_rial, status, method, ref, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      )
+      .run(row.id, row.shop_id, row.plan_code, row.amount_toman, row.amount_rial, row.status, row.method, row.ref, row.created_at);
     return row;
+  },
+  byId(id: string): CreditOrderRow | undefined {
+    return getDb().prepare("SELECT * FROM credit_orders WHERE id = ?").get(id) as CreditOrderRow | undefined;
   },
   forShop(shopId: string): CreditOrderRow[] {
     return getDb().prepare("SELECT * FROM credit_orders WHERE shop_id = ? ORDER BY created_at DESC").all(shopId) as unknown as CreditOrderRow[];
-  },
-  setStatus(id: string, status: CreditOrderRow["status"], ref?: string | null): void {
-    getDb().prepare("UPDATE credit_orders SET status = ?, ref = COALESCE(?, ref) WHERE id = ?").run(status, ref ?? null, id);
   },
 };
 

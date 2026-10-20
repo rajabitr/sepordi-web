@@ -29,6 +29,7 @@ const MESSAGES: Record<string, Message> = {
   entitlement_exceeded: "سقف تعداد فروشگاه‌ها پر شده است. با پشتیبانی تماس بگیرید.",
   entitlement_set_by_operator: "این تنظیم را فقط پشتیبانی می‌تواند تغییر دهد.",
   unknown_feature: "این امکان شناخته‌شده نیست.",
+  unknown_limit: "این سقف شناخته‌شده نیست.",
   rate_limited: (p) =>
     num(p, "retry_after_seconds")
       ? `درخواست‌ها زیاد شد. ${num(p, "retry_after_seconds")} ثانیه‌ی دیگر دوباره امتحان کنید.`
@@ -58,7 +59,7 @@ const MESSAGES: Record<string, Message> = {
   tenant_not_found: "فروشگاه شما در سرویس دستیار پیدا نشد. با پشتیبانی تماس بگیرید.",
 
   // owner and activation
-  owner_email_in_use: "این ایمیل قبلاً در بیزین ثبت شده است. ایمیل دیگری وارد کنید.",
+  owner_email_in_use: "این ایمیل قبلاً برای حساب دیگری ثبت شده است. ایمیل دیگری وارد کنید.",
   owner_mismatch: "این فروشگاه قبلاً با مالک دیگری ساخته شده است. با پشتیبانی تماس بگیرید.",
   owner_external_id_in_use: "این حساب به فروشگاه دیگری وصل است. با پشتیبانی تماس بگیرید.",
   owner_already_active: "حساب مالک قبلاً فعال شده است.",
@@ -102,6 +103,9 @@ const MESSAGES: Record<string, Message> = {
   too_many_rows: (p) => `تعداد ردیف‌ها زیاد است${num(p, "max") ? `؛ حداکثر ${num(p, "max")} ردیف` : ""}.`,
   job_not_ready: "این فایل هنوز آماده‌ی ثبت نیست.",
   job_has_row_errors: "بعضی ردیف‌ها خطا دارند. اول آن‌ها را درست کنید.",
+  price_unit_mismatch: "واحد ستون قیمت با واحد فروشگاه یکی نیست. ستون قیمت را به همان واحد فروشگاه بنویسید.",
+  commit_interrupted: "ثبت نیمه‌کاره ماند. صفحه را تازه کنید و دوباره ثبت کنید.",
+  market_changed: "تنظیمات بازار فروشگاه بعد از پیش‌نمایش عوض شد و چیزی ثبت نشد. فایل را دوباره بفرستید.",
 
   // payment details
   card_number_invalid: "شماره‌ی کارت درست نیست. هر ۱۶ رقم را بررسی کنید.",
@@ -122,7 +126,7 @@ const MESSAGES: Record<string, Message> = {
   conversation_not_handed_off: "این گفت‌وگو به شما واگذار نشده است.",
   message_not_found: "این پیام دیگر وجود ندارد.",
   no_customer_message: "مشتری هنوز در این گفت‌وگو پیامی نداده، پس نمی‌شود برایش پیام فرستاد.",
-  customer_opted_out: "مشتری خواسته دستیار جواب ندهد. این را فقط از پنل بیزین می‌شود برگرداند.",
+  customer_opted_out: "مشتری خواسته دستیار جواب ندهد. این را فقط از پنل پیشرفته می‌شود برگرداند.",
   window_closed: "مهلت پاسخ در این کانال تمام شده است. منتظر پیام بعدی مشتری بمانید.",
   recipient_refused: "پیام به مشتری نرسید؛ کانال آن را نپذیرفت.",
   send_paused: "ارسال پیام در این کانال موقتاً متوقف است. کمی بعد امتحان کنید.",
@@ -136,6 +140,7 @@ const MESSAGES: Record<string, Message> = {
   bad_multipart: "فایل درست ارسال نشد. دوباره انتخاب کنید.",
   file_field_missing: "فایلی انتخاب نشده است.",
   text_required: "متن پیام را بنویسید.",
+  text_too_long: (p) => `متن طولانی است${num(p, "max") ? `؛ حداکثر ${num(p, "max")} نویسه` : ""}. آن را کوتاه‌تر کنید.`,
   send_rate_limited: "ارسال پیام‌ها زیاد شد. کمی بعد دوباره بفرستید.",
   send_failed: "پیام به مشتری نرسید. دوباره بفرستید.",
   media_unavailable: "فایل الان در دسترس نیست. کمی بعد دوباره امتحان کنید.",
@@ -156,7 +161,7 @@ const MESSAGES: Record<string, Message> = {
   webhook_limit_reached: (p) => `حداکثر ${num(p, "max") ?? "۵"} وب‌هوک مجاز است.`,
   webhook_disabled: "این وب‌هوک غیرفعال است. اول آن را فعال کنید.",
   secrets_unavailable: "ذخیره‌ی کلید الان ممکن نیست. کمی بعد دوباره امتحان کنید.",
-  brand_mode_read_only: "حالت برند را فقط بیزین تغییر می‌دهد.",
+  brand_mode_read_only: "حالت برند از این‌جا تغییر نمی‌کند.",
   disclosure_invalid: "متن اطلاع‌رسانی باید بگوید پاسخ‌ها خودکار است و راه گفت‌وگو با انسان را بدهد.",
   logo_invalid: "لوگو باید PNG یا WebP باشد.",
   logo_type_unsupported: "لوگو باید PNG یا WebP باشد.",

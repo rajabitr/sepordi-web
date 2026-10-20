@@ -34,7 +34,7 @@ export function AnnouncementBanner({ message, action, storageKey, tone = "brand"
   }
   if (closed || remembered) return null;
   return (
-    <div role="region" aria-label="اعلان" className={cn("flex items-center justify-center gap-3 px-4 py-2 text-sm", tone === "brand" ? "bg-brand text-brand-foreground" : "bg-foreground text-background", className)}>
+    <div role="region" aria-label="اعلان" className={cn("flex items-center justify-center gap-3 px-4 py-2 text-sm", tone === "brand" ? "bg-brand-strong text-brand-strong-foreground" : "bg-foreground text-background", className)}>
       <p className="truncate">{message}</p>
       {action && <a href={action.href} className="inline-flex shrink-0 items-center gap-1 font-semibold underline underline-offset-4">{action.label}<ArrowLeft className="size-3.5" /></a>}
       <button type="button" onClick={dismiss} aria-label="بستن اعلان" className="ms-auto -me-1 flex size-7 shrink-0 items-center justify-center rounded-md opacity-80 transition-opacity hover:opacity-100"><X className="size-4" /></button>

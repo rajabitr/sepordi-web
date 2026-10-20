@@ -61,7 +61,7 @@ export function OtpField({ length = 6, value, defaultValue = "", onChange, onCom
           onFocus={(e) => e.target.select()}
           className={cn(
             "shrink-0 rounded-md border border-input bg-card text-center font-semibold text-foreground caret-transparent",
-            size === "sm" ? "h-10 w-8 text-sm" : "h-11 w-9 text-base",
+            size === "sm" ? "size-11 text-sm" : "h-12 w-11 text-base",
             "transition-colors focus:border-foreground/60 focus:outline-none focus:ring-2 focus:ring-foreground/10",
             "disabled:opacity-50",
           )}

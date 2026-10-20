@@ -47,7 +47,7 @@ export const yearly = (monthly: number) => monthly * 10;
 function Logo() {
   return (
     <span className="flex items-center gap-2 text-base font-black">
-      <span className="grid size-8 place-items-center rounded-xl bg-gradient-to-br from-brand to-brand/50 text-sm text-brand-foreground shadow-[0_8px_20px_-8px_var(--brand)]">ح</span>
+      <span className="grid size-8 place-items-center rounded-xl bg-brand-strong text-sm text-brand-strong-foreground shadow-[0_8px_20px_-8px_var(--brand)]">ح</span>
       حسابینو
     </span>
   );

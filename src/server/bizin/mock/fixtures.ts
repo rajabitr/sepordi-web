@@ -3,26 +3,17 @@ import "server-only";
 import { mulberry32 } from "@/lib/utils";
 
 import type { Schemas } from "../schema";
+import { DEMO_SHOPS, demoOwnerId, type Rand, tenantRand, uuidFrom } from "./demo";
 import { mockPng } from "./png";
 import type { MockTenant, MockWorld } from "./state";
 
-/** Demo shops every mock world starts with; `src/server/db/seed.ts` links the demo seller to the first one. */
-export const DEMO_SHOPS = [
-  { ext: "demo-nila", name: "گالری نیلا", flavor: "jewelry" },
-  { ext: "demo-rasta", name: "قهوه‌ی رستا", flavor: "coffee" },
-] as const;
+export { DEMO_SHOPS, uuidFrom };
 
 type Flavor = "jewelry" | "coffee";
-type Rand = () => number;
 
 const MIN = 60_000;
 const HOUR = 60 * MIN;
 const DAY = 24 * HOUR;
-
-export function uuidFrom(rand: Rand): string {
-  const h = Array.from({ length: 32 }, () => Math.floor(rand() * 16).toString(16)).join("");
-  return `${h.slice(0, 8)}-${h.slice(8, 12)}-4${h.slice(13, 16)}-a${h.slice(17, 20)}-${h.slice(20, 32)}`;
-}
 
 const iso = (ms: number) => new Date(ms).toISOString();
 const pick = <T,>(rand: Rand, list: readonly T[]): T => list[Math.floor(rand() * list.length)];
@@ -231,7 +222,7 @@ export function seedTenant(
   world: MockWorld,
   init: { ext: string; name: string; flavor: Flavor; ownerExternalId: string; ownerEmail: string; ownerStatus?: "pending" | "active"; now: number; demo: boolean },
 ): MockTenant {
-  const rand = mulberry32(hash(init.ext));
+  const rand = tenantRand(init.ext);
   const { now } = init;
   const tenantId = uuidFrom(rand);
   const created = init.demo ? now - 45 * DAY : now;
@@ -520,10 +511,10 @@ export function seedWorld(now = Date.now()): MockWorld {
     idempotency: new Map(),
   };
 
-  DEMO_SHOPS.forEach((s, i) => {
+  DEMO_SHOPS.forEach((s) => {
     world.tenants.set(
       s.ext,
-      seedTenant(world, { ext: s.ext, name: s.name, flavor: s.flavor, ownerExternalId: `demo-owner-${i + 1}`, ownerEmail: `owner${i + 1}@demo.sepordi.ir`, now, demo: true }),
+      seedTenant(world, { ext: s.ext, name: s.name, flavor: s.flavor, ownerExternalId: demoOwnerId(s.ext), ownerEmail: s.ownerEmail, now, demo: true }),
     );
   });
 
@@ -555,10 +546,4 @@ export function seedWorld(now = Date.now()): MockWorld {
     })),
   );
   return world;
-}
-
-function hash(s: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619);
-  return h >>> 0;
 }

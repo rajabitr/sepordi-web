@@ -104,7 +104,7 @@ export function Sheet({
           transitionTimingFunction: PANEL_EASE,
         }}
       >
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div className="flex items-center justify-between border-b border-border px-4 py-2">
           {title && (
             <h2 id={titleId} className="text-sm font-semibold">
               {title}
@@ -114,7 +114,7 @@ export function Sheet({
             type="button"
             aria-label="بستن"
             onClick={() => onOpenChange(false)}
-            className="ms-auto flex size-8 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="-me-2 ms-auto flex size-11 cursor-pointer items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <X className="size-4" />
           </button>

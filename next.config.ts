@@ -37,6 +37,11 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   cacheComponents: true,
   partialPrefetching: true,
+  experimental: {
+    // The proxy buffers request bodies up to this size and silently truncates the rest. Catalogue and onboarding
+    // uploads allow a 10 MiB file, plus the multipart envelope.
+    proxyClientMaxBodySize: "11mb",
+  },
   turbopack: {
     rules: {
       "*.css": {
