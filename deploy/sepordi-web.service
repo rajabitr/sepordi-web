@@ -1,0 +1,24 @@
+[Unit]
+Description=sepordi.ir web (Next.js standalone)
+After=network-online.target
+Wants=network-online.target
+ConditionPathExists=/opt/sepordi/current/server.js
+
+[Service]
+User=sepordi
+Group=sepordi
+WorkingDirectory=/opt/sepordi/current
+EnvironmentFile=/etc/sepordi/env
+Environment=NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 SEPORDI_DB_PATH=/var/lib/sepordi/sepordi.db
+ExecStart=/opt/node/bin/node server.js
+Restart=always
+RestartSec=3
+MemoryMax=700M
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/sepordi
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,40 @@
+# secrets — never commit
+server.txt
+*.secret.txt
+.env
+.env.*
+!.env.example
+
+# dependencies
+node_modules/
+/.pnp
+.pnp.*
+
+# build output
+.next/
+out/
+/build
+*.tsbuildinfo
+next-env.d.ts
+
+# testing
+/coverage
+
+# local data (SQLite)
+data/
+
+# tooling
+graphify-out/
+.claude/settings.local.json
+.vercel
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# owner drop folder (ASCII copies live in brand/source/)
+/لوگوی سپردی/

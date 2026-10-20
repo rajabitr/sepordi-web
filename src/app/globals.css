@@ -1,0 +1,374 @@
+@import "tailwindcss";
+
+/* --- vibefarsi:theme-sepordi --- */
+/* Sepordi: logo navy (#2B2451) for text and the primary button, logo violet (#7B62FF) for highlights,
+   glow and focus. Violet TEXT always uses --brand-ink (text-brand-ink): the logo violet is 4.2:1 on white.
+   Token values must stay hex: src/lib/theme-contrast.test.ts parses this block and checks every pair. */
+:root {
+  color-scheme: light;
+
+  /* رنگ */
+  --background: #f7f8fc;
+  --foreground: #2b2451;
+  --card: #ffffff;
+  --card-foreground: #2b2451;
+  --popover: #ffffff;
+  --popover-foreground: #2b2451;
+  --primary: #2b2451;
+  --primary-foreground: #ffffff;
+  --secondary: #eeedf8;
+  --secondary-foreground: #2b2451;
+  --muted: #f0f1f7;
+  --muted-foreground: #57536f;
+  --accent: #efecff;
+  --accent-foreground: #2b2451;
+  --destructive: #b42318;
+  --success: #0f7a55;
+  --warning: #a15c07;
+  --border: #2b24511f;
+  --input: #8c88a8;
+  --ring: #7b62ff;
+  --brand: #7b62ff;
+  --brand-foreground: #ffffff;
+  --brand-ink: #5b41e6;
+
+  /* زبان طراحی: فونت، فرم، خط، عمق، حرکت و تراکم */
+  --radius: 0.75rem;
+  --type-display: var(--font-vazirmatn), "Vazirmatn", ui-sans-serif, sans-serif;
+  --type-body: var(--font-vazirmatn), "Vazirmatn", ui-sans-serif, sans-serif;
+  --type-display-weight: 800;
+  --shape-control: calc(var(--radius) - 2px);
+  --shape-field: calc(var(--radius) - 2px);
+  --shape-surface: calc(var(--radius) + 4px);
+  --shape-overlay: calc(var(--radius) + 4px);
+  --line: 1px;
+  --line-field: 1px;
+  --line-style: solid;
+  --field: #ffffff;
+  --depth-control: 0 1px 2px 0 #2b245114;
+  --depth-press: inset 0 1px 2px 0 #2b24511f;
+  --depth-field: 0 1px 2px 0 #2b24510d;
+  --depth-surface: 0 1px 2px 0 #2b24510a, 0 8px 24px -12px #2b24511f;
+  --depth-overlay: 0 24px 56px -20px #2b245140, 0 0 0 1px #2b24510f;
+  --surface-filter: none;
+  --press: scale(0.98);
+  --motion: 200ms;
+  --motion-ease: cubic-bezier(0.2, 0, 0, 1);
+  --backdrop: none;
+  --spacing: 0.25rem;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --background: #120f24;
+  --foreground: #f1f0fa;
+  --card: #1a1631;
+  --card-foreground: #f1f0fa;
+  --popover: #1f1a3a;
+  --popover-foreground: #f1f0fa;
+  --primary: #edebff;
+  --primary-foreground: #2b2451;
+  --secondary: #241f42;
+  --secondary-foreground: #f1f0fa;
+  --muted: #1c1834;
+  --muted-foreground: #a9a5c4;
+  --accent: #2a2450;
+  --accent-foreground: #f1f0fa;
+  --destructive: #ff7a70;
+  --success: #4fd69c;
+  --warning: #f5b544;
+  --border: #ffffff1a;
+  --input: #6e6a8e;
+  --ring: #8b75ff;
+  --brand: #8b75ff;
+  --brand-foreground: #120f24;
+  --brand-ink: #b3a5ff;
+
+  --field: #ffffff0a;
+  --depth-control: 0 0 #0000;
+  --depth-press: inset 0 1px 2px 0 #00000059;
+  --depth-field: 0 0 #0000;
+  --depth-surface: inset 0 1px 0 0 #ffffff0f, 0 8px 24px -12px #00000080;
+  --depth-overlay: 0 24px 56px -20px #000000b3, 0 0 0 1px #ffffff14;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --background: #120f24;
+    --foreground: #f1f0fa;
+    --card: #1a1631;
+    --card-foreground: #f1f0fa;
+    --popover: #1f1a3a;
+    --popover-foreground: #f1f0fa;
+    --primary: #edebff;
+    --primary-foreground: #2b2451;
+    --secondary: #241f42;
+    --secondary-foreground: #f1f0fa;
+    --muted: #1c1834;
+    --muted-foreground: #a9a5c4;
+    --accent: #2a2450;
+    --accent-foreground: #f1f0fa;
+    --destructive: #ff7a70;
+    --success: #4fd69c;
+    --warning: #f5b544;
+    --border: #ffffff1a;
+    --input: #6e6a8e;
+    --ring: #8b75ff;
+    --brand: #8b75ff;
+    --brand-foreground: #120f24;
+    --brand-ink: #b3a5ff;
+
+    --field: #ffffff0a;
+    --depth-control: 0 0 #0000;
+    --depth-press: inset 0 1px 2px 0 #00000059;
+    --depth-field: 0 0 #0000;
+    --depth-surface: inset 0 1px 0 0 #ffffff0f, 0 8px 24px -12px #00000080;
+    --depth-overlay: 0 24px 56px -20px #000000b3, 0 0 0 1px #ffffff14;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+/* --- vibefarsi:theme-sepordi-end --- */
+
+/* --- vibefarsi:tailwind-map --- */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-ink: var(--brand-ink);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* Design language: type, shape, line, depth and motion of the active system. */
+  --radius-control: var(--shape-control);
+  --radius-field: var(--shape-field);
+  --radius-surface: var(--shape-surface);
+  --radius-overlay: var(--shape-overlay);
+  --border-width-line: var(--line);
+  --border-width-line-field: var(--line-field);
+  --color-field: var(--field);
+  --shadow-control: var(--depth-control);
+  --shadow-press: var(--depth-press);
+  --shadow-field: var(--depth-field);
+  --shadow-surface: var(--depth-surface);
+  --shadow-overlay: var(--depth-overlay);
+  --ease-motion: var(--motion-ease);
+  --font-display: var(--type-display);
+}
+
+@layer base {
+  body {
+    font-size: 16.5px;
+    line-height: 1.8;
+    letter-spacing: 0;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    font-family: var(--type-body, inherit);
+    background-image: var(--backdrop, none);
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--type-display, inherit);
+    font-weight: var(--type-display-weight, 700);
+    /* Single-weight display faces (Lalezar) must not be faux-bolded. */
+    font-synthesis-weight: none;
+  }
+
+  /* iOS Safari zooms into any focused field smaller than 16px; only iOS matches this query. */
+  @supports (-webkit-touch-callout: none) {
+    input, textarea, select {
+      --text-xs: 1rem;
+      --text-sm: 1rem;
+      font-size: max(1rem, 1em);
+    }
+  }
+}
+/* --- vibefarsi:tailwind-map-end --- */
+
+/* --- vibefarsi:font --- */
+@theme inline {
+  --font-sans: var(--font-vazirmatn), "Vazirmatn", ui-sans-serif, system-ui, sans-serif;
+}
+/* --- vibefarsi:font-end --- */
+
+/* --- vibefarsi:typewriter --- */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+/* --- vibefarsi:typewriter-end --- */
+
+/* --- vibefarsi:streaming-text --- */
+@keyframes pulse-soft {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+/* --- vibefarsi:streaming-text-end --- */
+
+/* --- vibefarsi:thinking-states --- */
+@keyframes shimmer {
+  from { background-position: 200% center; }
+  to { background-position: -200% center; }
+}
+@keyframes swap-out {
+  to { opacity: 0; filter: blur(2px); transform: translateY(calc(var(--swap-y, 4px) * -1)); }
+}
+@keyframes swap-in {
+  from { opacity: 0; filter: blur(2px); transform: translateY(var(--swap-y, 4px)); }
+}
+/* --- vibefarsi:thinking-states-end --- */
+
+/* --- vibefarsi:loading-dots --- */
+@keyframes bounce-dot {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-6px); opacity: 1; }
+}
+/* --- vibefarsi:loading-dots-end --- */
+
+/* --- vibefarsi:animated-beam --- */
+@keyframes beam-travel {
+  from { stroke-dashoffset: 28; }
+  to { stroke-dashoffset: -100; }
+}
+/* --- vibefarsi:animated-beam-end --- */
+
+/* --- vibefarsi:animated-list --- */
+@keyframes slide-in {
+  from { opacity: 0; transform: translateX(-14px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+/* --- vibefarsi:animated-list-end --- */
+
+/* --- vibefarsi:border-beam --- */
+@property --beam-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+@keyframes beam { to { --beam-angle: 360deg; } }
+/* --- vibefarsi:border-beam-end --- */
+
+/* --- vibefarsi:success-check --- */
+@keyframes pop {
+  0% { transform: scale(0.6); opacity: 0; }
+  60% { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); }
+}
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes word-in {
+  from { opacity: 0; transform: translateY(0.6em); filter: blur(4px); }
+  to { opacity: 1; transform: translateY(0); filter: blur(0); }
+}
+/* --- vibefarsi:success-check-end --- */
+
+/* --- vibefarsi:text-shimmer --- */
+@keyframes shimmer {
+  from { background-position: 200% center; }
+  to { background-position: -200% center; }
+}
+/* --- vibefarsi:text-shimmer-end --- */
+
+/* --- vibefarsi:marquee --- */
+@keyframes marquee {
+  from { transform: translateX(-50%); }
+  to { transform: translateX(0); }
+}
+/* --- vibefarsi:marquee-end --- */
+
+/* --- vibefarsi:notification-badge --- */
+@keyframes badge-slide {
+  from { transform: translate(var(--bx, -8px), 12px); }
+  to { transform: translate(0, 0); }
+}
+@keyframes bell-ring {
+  0%, 100% { transform: rotate(0); }
+  15% { transform: rotate(14deg); }
+  30% { transform: rotate(-10deg); }
+  45% { transform: rotate(6deg); }
+  60% { transform: rotate(-3deg); }
+  75% { transform: rotate(1deg); }
+}
+/* --- vibefarsi:notification-badge-end --- */
+
+/* --- vibefarsi:gradient-text --- */
+@keyframes gradient-pan {
+  from { background-position: 0% 50%; }
+  to { background-position: 150% 50%; }
+}
+/* --- vibefarsi:gradient-text-end --- */
+
+/* --- vibefarsi:aurora --- */
+@keyframes aurora {
+  0% { transform: translate(-10%, -10%) scale(1); }
+  50% { transform: translate(10%, 5%) scale(1.15); }
+  100% { transform: translate(-5%, 10%) scale(0.95); }
+}
+/* --- vibefarsi:aurora-end --- */
+
+/* --- vibefarsi:text-reveal --- */
+@keyframes wipe-in {
+  from { clip-path: inset(0 0 0 100%); transform: translateY(0.35em); opacity: 0; }
+  to { clip-path: inset(0 0 0 0); transform: translateY(0); opacity: 1; }
+}
+/* --- vibefarsi:text-reveal-end --- */
+
+/* --- vibefarsi:pulse-button --- */
+@keyframes pulse-ring {
+  0% { transform: scale(1); opacity: 0.6; }
+  100% { transform: scale(1.4); opacity: 0; }
+}
+/* --- vibefarsi:pulse-button-end --- */
+
+/* --- vibefarsi:sparkles --- */
+@keyframes sparkle {
+  0%, 100% { opacity: 0; transform: scale(0) rotate(0deg); }
+  50% { opacity: 1; transform: scale(1) rotate(90deg); }
+}
+/* --- vibefarsi:sparkles-end --- */
+
+/* --- sepordi:logo-tone --- */
+/* <Logo tone="auto"> renders both wordmarks; the theme decides which one shows. */
+.sp-logo-on-dark { display: none; }
+:root[data-theme="dark"] .sp-logo-on-light { display: none; }
+:root[data-theme="dark"] .sp-logo-on-dark { display: block; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .sp-logo-on-light { display: none; }
+  :root:not([data-theme="light"]) .sp-logo-on-dark { display: block; }
+}
+/* --- sepordi:logo-tone-end --- */
