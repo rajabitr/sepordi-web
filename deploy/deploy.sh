@@ -57,7 +57,7 @@ find "$STAGE" \( -name 'server.txt' -o -name '.env' -o -name '.env.*' -o -name '
 rm -rf "$STAGE/data" "$STAGE/docs" "$STAGE/brand" "$STAGE/deploy"
 if find "$STAGE" -name 'server.txt' | grep -q .; then echo "refusing: server.txt in release" >&2; exit 1; fi
 
-tar -C "$STAGE" -czf "$STAGE.tgz" .
+COPYFILE_DISABLE=1 tar --no-xattrs -C "$STAGE" -czf "$STAGE.tgz" .
 echo "release $REL ($(du -h "$STAGE.tgz" | cut -f1))"
 sshpass -e scp -q -P "$PORT" "$STAGE.tgz" "$LOGIN@$HOST:/tmp/sepordi-$REL.tgz"
 remote "set -e
