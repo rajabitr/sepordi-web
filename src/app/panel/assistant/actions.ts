@@ -2,37 +2,41 @@
 
 import { revalidatePath } from "next/cache";
 
-import { CONDITIONS_MAX, PERSONA_MAX, PROFILE_MAX, WINDOW_MAX } from "@/components/panel/assistant/limits";
+import { checkKnowledge, type KnowledgeDraft } from "@/components/panel/assistant/knowledge";
+import { CONDITIONS_MAX, PERSONA_MAX, WINDOW_MAX } from "@/components/panel/assistant/limits";
 import type { ActionResult } from "@/components/panel/overview/action-result";
 import { actionError } from "@/components/panel/overview/settle";
-import { requireSeller } from "@/server/auth/session";
+import { requireShopOwner } from "@/server/auth/session";
 import * as bizin from "@/server/bizin/client";
+import { loadKnowledgeDraft, saveKnowledgeDraft } from "@/server/knowledge/draft";
 
 export interface AssistantInput {
   enabled: boolean;
   auto_reply: boolean;
   reply_language: "fa" | "en" | "ar";
   persona_name: string;
-  business_profile: string;
+  knowledge: KnowledgeDraft;
 }
 
 const LANGS = ["fa", "en", "ar"] as const;
 
+/** `business_profile` is compiled here from the sections; a compiled string sent by the client is never used. */
 export async function saveAssistantAction(input: AssistantInput): Promise<ActionResult<AssistantInput>> {
-  const { shop } = await requireSeller();
+  const { shop } = await requireShopOwner();
   const persona = String(input.persona_name ?? "").trim();
-  const profile = String(input.business_profile ?? "").trim();
   if (!LANGS.includes(input.reply_language)) return { ok: false, field: "reply_language", message: "زبان پاسخ را انتخاب کنید." };
   if ([...persona].length > PERSONA_MAX) return { ok: false, field: "persona_name", message: "نام دستیار حداکثر ۸۰ نویسه است." };
-  if ([...profile].length > PROFILE_MAX) return { ok: false, field: "business_profile", message: "معرفی فروشگاه حداکثر ۴٬۰۰۰ نویسه است." };
+  const k = checkKnowledge(input.knowledge);
+  if (!k.ok) return { ok: false, field: k.field, message: k.message };
   try {
     const a = await bizin.updateAssistant(shop.external_business_id, {
       enabled: Boolean(input.enabled),
       auto_reply: Boolean(input.auto_reply),
       reply_language: input.reply_language,
       persona_name: persona,
-      business_profile: profile,
+      business_profile: k.compiled,
     });
+    saveKnowledgeDraft(shop.id, k.draft);
     revalidatePath("/panel");
     return {
       ok: true,
@@ -41,7 +45,7 @@ export async function saveAssistantAction(input: AssistantInput): Promise<Action
         auto_reply: a.auto_reply,
         reply_language: a.reply_language,
         persona_name: a.persona_name,
-        business_profile: a.business_profile,
+        knowledge: loadKnowledgeDraft(shop.id, a.business_profile),
       },
     };
   } catch (e) {
@@ -56,7 +60,7 @@ export interface ReturnPolicyInput {
 }
 
 export async function saveReturnPolicyAction(input: ReturnPolicyInput): Promise<ActionResult<ReturnPolicyInput>> {
-  const { shop } = await requireSeller();
+  const { shop } = await requireShopOwner();
   const conditions = String(input.conditions ?? "").trim();
   const days = input.window_days;
   if (days !== null && (!Number.isInteger(days) || days < 0 || days > WINDOW_MAX)) {

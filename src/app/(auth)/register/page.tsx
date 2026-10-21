@@ -6,7 +6,7 @@ import { AuthSkeleton } from "@/components/auth/auth-skeleton";
 import { RegisterFlow } from "@/components/auth/register-flow";
 import { otpProvider } from "@/server/auth/otp";
 import { getSession, isAdminUser } from "@/server/auth/session";
-import { shops } from "@/server/db/repo";
+import { members } from "@/server/db/repo";
 import { completeSignupAction, sendCodeAction, setSignupPasswordAction, verifySignupCodeAction } from "@/server/signup/actions";
 
 export const metadata: Metadata = {
@@ -26,7 +26,7 @@ export default function RegisterPage() {
 async function Register() {
   const session = await getSession();
   if (session && isAdminUser(session.user)) redirect("/admin");
-  if (session && shops.byUserId(session.user.id)?.bizin_tenant_id) redirect("/panel");
+  if (session && members.shopFor(session.user.id)?.shop.bizin_tenant_id) redirect("/panel");
   const otp = otpProvider();
   return (
     <RegisterFlow

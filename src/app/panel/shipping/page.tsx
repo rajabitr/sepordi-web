@@ -6,7 +6,7 @@ import { LoadError, PageHeader } from "@/components/panel/overview/parts";
 import { settle } from "@/components/panel/overview/settle";
 import { fromApi } from "@/components/panel/shipping/model";
 import { ShippingForm } from "@/components/panel/shipping/shipping-form";
-import { requireSeller } from "@/server/auth/session";
+import { requireShopOwner } from "@/server/auth/session";
 import * as bizin from "@/server/bizin/client";
 
 export const metadata: Metadata = { title: "ارسال" };
@@ -23,7 +23,7 @@ export default function ShippingPage() {
 }
 
 async function ShippingSection() {
-  const { shop } = await requireSeller();
+  const { shop } = await requireShopOwner();
   const shipping = await settle(bizin.getShipping(shop.external_business_id));
   if (!shipping.ok) return <LoadError title="قانون ارسال بارگذاری نشد" message={shipping.message} requestId={shipping.requestId} />;
   return (

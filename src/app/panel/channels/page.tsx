@@ -6,14 +6,14 @@ import { ChannelsGrid } from "@/components/panel/channels/channels-grid";
 import { ApiErrorAlert } from "@/components/panel/products/api-error";
 import { PageHeader } from "@/components/panel/products/page-header";
 import { Skeleton } from "@/components/ui/skeleton";
-import { requireSeller } from "@/server/auth/session";
+import { requireShopOwner } from "@/server/auth/session";
 import { getTenantChannels } from "@/server/bizin/client";
 import { toFarsiError } from "@/server/bizin/errors-fa";
 
 export const metadata: Metadata = { title: "کانال‌ها" };
 
 async function ChannelsData() {
-  const { shop } = await requireSeller();
+  const { shop } = await requireShopOwner();
   let channels: ChannelView[];
   try {
     channels = (await getTenantChannels(shop.external_business_id)).channels;

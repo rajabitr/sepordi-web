@@ -4,8 +4,7 @@ import { Suspense } from "react";
 import { ArrowRight } from "lucide-react";
 
 import { ApiError, KeyValues, PageHeader, Pill, Section, SectionSkeleton } from "@/components/admin/page-parts";
-import { CHANNEL_KIND_FA, CHANNEL_STATUS_FA, OWNER_STATUS_FA, label } from "@/components/admin/model/labels";
-import { ActivationLinkAction } from "@/components/admin/sellers/activation-link";
+import { CHANNEL_KIND_FA, CHANNEL_STATUS_FA, label } from "@/components/admin/model/labels";
 import { EntitlementsEditor } from "@/components/admin/sellers/entitlements-editor";
 import { Stat } from "@/components/ui/stat";
 import { formatDate } from "@/lib/date";
@@ -15,7 +14,7 @@ import { requireAdmin } from "@/server/auth/session";
 import { localSeller } from "@/server/admin/sellers";
 import * as bizin from "@/server/bizin/client";
 
-import { saveEntitlementsAction, sendActivationLinkAction } from "./actions";
+import { saveEntitlementsAction } from "./actions";
 
 export const metadata: Metadata = { title: "جزئیات فروشنده" };
 
@@ -66,7 +65,7 @@ async function TenantOverview({ ext }: { ext: string }) {
       </>
     );
   }
-  const { tenant, owner, channels, credit } = detail.data;
+  const { tenant, channels, credit } = detail.data;
   return (
     <>
       <PageHeader
@@ -83,16 +82,12 @@ async function TenantOverview({ ext }: { ext: string }) {
               { label: "ثبت‌نام در سپردی", value: local ? formatDate(local.user_created_at) : "—" },
               { label: "ساخت در بیزین", value: formatDate(tenant.created_at) },
               { label: "شناسه‌ی بیزین", value: tenant.id, ltr: true },
-              { label: "حساب پنل پیشرفته", value: owner ? label(OWNER_STATUS_FA, owner.status) : "مالکی ثبت نشده" },
               {
                 label: "اعتبار هوش مصنوعی",
                 value: credit.state === "ok" ? <Pill tone="success">دارد</Pill> : <Pill tone="danger">تمام شده</Pill>,
               },
             ]}
           />
-          <div className="mt-6 border-t border-border pt-4">
-            <ActivationLinkAction action={sendActivationLinkAction.bind(null, ext)} ownerPending={owner?.status === "pending"} />
-          </div>
         </Section>
         <Section title="کانال‌ها">
           {channels.length === 0 ? (

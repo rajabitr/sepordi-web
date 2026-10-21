@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import * as React from "react";
 import { Archive, Lock, Package, PencilLine } from "lucide-react";
@@ -20,6 +21,19 @@ import { cn, fa, faNumber } from "@/lib/utils";
 import { priceRange, STOCK_LABEL, stockLevel, type ProductView, type StockLevel } from "./catalog";
 
 type Filter = "active" | "archived" | "all";
+
+/** The product's first picture as sepordi holds it; the Partner API's product carries none. */
+function Thumb({ url }: { url: string | undefined }) {
+  return (
+    <div className="relative flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-muted">
+      {url ? (
+        <Image src={url} alt="" fill sizes="48px" className="object-cover" />
+      ) : (
+        <Package className="size-5 text-muted-foreground" strokeWidth={1.5} aria-hidden />
+      )}
+    </div>
+  );
+}
 
 const STOCK_VARIANT: Record<StockLevel, "destructive" | "warning" | "success" | "secondary"> = {
   out: "destructive",
@@ -57,7 +71,7 @@ function StatusBadge({ active }: { active: boolean }) {
 function RowActions({ p, onArchive }: { p: ProductView; onArchive: (p: ProductView) => void }) {
   if (!p.external_id) {
     return (
-      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground" title="این محصول در پنل پیشرفته ساخته شده و این‌جا فقط خواندنی است.">
+      <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground" title="این محصول از راه دیگری ساخته شده و این‌جا فقط قابل مشاهده است.">
         <Lock className="size-4" strokeWidth={1.5} aria-hidden />
         فقط خواندنی
       </span>
@@ -83,7 +97,7 @@ function RowActions({ p, onArchive }: { p: ProductView; onArchive: (p: ProductVi
   );
 }
 
-export function ProductsTable({ products }: { products: ProductView[] }) {
+export function ProductsTable({ products, thumbs = {} }: { products: ProductView[]; thumbs?: Record<string, string> }) {
   const { toast } = useToast();
   const [query, setQuery] = React.useState("");
   const [filter, setFilter] = React.useState<Filter>("active");
@@ -96,6 +110,7 @@ export function ProductsTable({ products }: { products: ProductView[] }) {
       (!q || p.title.toLocaleLowerCase("fa").includes(q) || p.sku.toLocaleLowerCase().includes(q)),
   );
   const readOnlyCount = products.filter((p) => !p.external_id).length;
+  const thumbOf = (p: ProductView) => (p.external_id ? thumbs[p.external_id] : undefined);
 
   async function archive() {
     if (!archiving?.external_id) return;
@@ -121,8 +136,8 @@ export function ProductsTable({ products }: { products: ProductView[] }) {
       </div>
 
       {readOnlyCount > 0 && (
-        <Alert title="محصولات ساخته‌شده در پنل پیشرفته">
-          {fa(readOnlyCount)} محصول در پنل پیشرفته ساخته شده است. این‌ها را دستیار می‌شناسد، ولی ویرایش و بایگانی‌شان فقط از پنل پیشرفته ممکن است.
+        <Alert title="محصولات فقط‌خواندنی">
+          {fa(readOnlyCount)} محصول از راه دیگری ساخته شده و این‌جا فقط قابل مشاهده است. دستیار این‌ها را می‌شناسد، ولی ویرایش و بایگانی‌شان از این‌جا ممکن نیست.
         </Alert>
       )}
 
@@ -150,7 +165,8 @@ export function ProductsTable({ products }: { products: ProductView[] }) {
             {visible.map((p) => (
               <li key={p.id} className="flex flex-col gap-2 rounded-surface border border-border bg-card p-4">
                 <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
+                  <Thumb url={thumbOf(p)} />
+                  <div className="min-w-0 flex-1">
                     <p className="truncate font-semibold">{p.title}</p>
                     <p className="text-xs text-muted-foreground">
                       {p.category || "بدون دسته"} · {fa(p.variants.filter((v) => v.active).length)} تنوع
@@ -187,13 +203,18 @@ export function ProductsTable({ products }: { products: ProductView[] }) {
               <TableBody>
                 {visible.map((p) => (
                   <TableRow key={p.id} className={cn(!p.active && "text-muted-foreground")}>
-                    <TableCell className="max-w-64">
-                      <p className="truncate font-medium">{p.title}</p>
-                      {p.sku && (
-                        <p className="text-xs text-muted-foreground">
-                          کد کالا: <bdi dir="ltr">{p.sku}</bdi>
-                        </p>
-                      )}
+                    <TableCell className="max-w-72">
+                      <div className="flex items-center gap-3">
+                        <Thumb url={thumbOf(p)} />
+                        <div className="min-w-0">
+                          <p className="truncate font-medium">{p.title}</p>
+                          {p.sku && (
+                            <p className="text-xs text-muted-foreground">
+                              کد کالا: <bdi dir="ltr">{p.sku}</bdi>
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </TableCell>
                     <TableCell>{p.category || <span className="text-muted-foreground">—</span>}</TableCell>
                     <TableCell numeric>{fa(p.variants.filter((v) => v.active).length)}</TableCell>

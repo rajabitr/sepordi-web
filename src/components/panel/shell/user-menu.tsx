@@ -9,7 +9,7 @@ import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { fa } from "@/lib/utils";
 import { logoutAction } from "@/server/auth/actions";
 
-export function UserMenu({ name, phone }: { name: string; phone: string }) {
+export function UserMenu({ name, phone, canBuyCredit }: { name: string; phone: string; canBuyCredit: boolean }) {
   const [pending, start] = useTransition();
   const router = useRouter();
   return (
@@ -25,7 +25,7 @@ export function UserMenu({ name, phone }: { name: string; phone: string }) {
       items={[
         { type: "label", label: <bdi dir="ltr">{fa(phone)}</bdi> },
         { label: "تنظیمات", icon: Settings, onSelect: () => router.push("/panel/settings") },
-        { label: "اعتبار", icon: Wallet, onSelect: () => router.push("/panel/credit") },
+        ...(canBuyCredit ? [{ label: "اعتبار", icon: Wallet, onSelect: () => router.push("/panel/credit") }] : []),
         { type: "separator" },
         { label: pending ? "در حال خروج…" : "خروج", icon: LogOut, danger: true, disabled: pending, onSelect: () => start(() => logoutAction()) },
       ]}

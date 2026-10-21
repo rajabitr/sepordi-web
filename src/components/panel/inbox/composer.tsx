@@ -21,12 +21,14 @@ export function Composer({
   block,
   sending,
   onSend,
+  inputId,
 }: {
   channel: ChannelKind;
   block: ComposerBlock;
   sending: boolean;
   /** Resolves true when the draft was delivered and may be cleared. */
   onSend: (draft: Draft) => Promise<boolean>;
+  inputId?: string;
 }) {
   const [text, setText] = React.useState("");
   const [image, setImage] = React.useState<File | null>(null);
@@ -98,6 +100,7 @@ export function Composer({
         </div>
       )}
       <Textarea
+        id={inputId}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {

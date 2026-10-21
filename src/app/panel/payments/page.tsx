@@ -5,7 +5,7 @@ import { FormPageSkeleton } from "@/components/panel/overview/form-skeleton";
 import { LoadError, PageHeader } from "@/components/panel/overview/parts";
 import { settle } from "@/components/panel/overview/settle";
 import { PaymentDetailsForm } from "@/components/panel/payments/payment-details-form";
-import { requireSeller } from "@/server/auth/session";
+import { requireShopOwner } from "@/server/auth/session";
 import * as bizin from "@/server/bizin/client";
 
 export const metadata: Metadata = { title: "پرداخت" };
@@ -25,7 +25,7 @@ export default function PaymentsPage() {
 }
 
 async function PaymentsSection() {
-  const { shop } = await requireSeller();
+  const { shop } = await requireShopOwner();
   const details = await settle(bizin.getPaymentDetails(shop.external_business_id));
   if (!details.ok) return <LoadError title="اطلاعات پرداخت بارگذاری نشد" message={details.message} requestId={details.requestId} />;
   return (

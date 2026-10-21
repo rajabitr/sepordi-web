@@ -22,7 +22,6 @@ import {
   customerName,
   filtersFromSearch,
   filtersToSearch,
-  handoffReasonLabel,
   messagePreview,
   QUEUE_LABEL,
   QUEUES,
@@ -31,6 +30,7 @@ import {
   type ListFilters,
   type StateTab,
 } from "./model";
+import { handoffReasonLabel } from "./handoff-reason";
 import { ChannelIcon, InlineError, PriorityBadge, StateBadge } from "./parts";
 import { ConversationListSkeleton } from "./skeletons";
 import { fetchResult, outcomeOf, usePoll } from "./use-poll";
@@ -52,15 +52,25 @@ function mergePages(fresh: Conversation[], loaded: Conversation[]): Conversation
   return [...fresh, ...loaded.filter((c) => !ids.has(c.id))].sort((a, b) => b.last_message_at.localeCompare(a.last_message_at));
 }
 
-export function ConversationList({ hasChannel }: { hasChannel: boolean }) {
+export function ConversationList({ hasChannel, canConnect }: { hasChannel: boolean; canConnect: boolean }) {
   const sp = useSearchParams();
   const filters = filtersFromSearch(sp);
   const filterKey = filtersToSearch(filters).toString();
   // A filter change starts over from the first page, as the API asks.
-  return <ListBody key={filterKey} filters={filters} filterKey={filterKey} hasChannel={hasChannel} />;
+  return <ListBody key={filterKey} filters={filters} filterKey={filterKey} hasChannel={hasChannel} canConnect={canConnect} />;
 }
 
-function ListBody({ filters, filterKey, hasChannel }: { filters: ListFilters; filterKey: string; hasChannel: boolean }) {
+function ListBody({
+  filters,
+  filterKey,
+  hasChannel,
+  canConnect,
+}: {
+  filters: ListFilters;
+  filterKey: string;
+  hasChannel: boolean;
+  canConnect: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -167,12 +177,20 @@ function ListBody({ filters, filterKey, hasChannel }: { filters: ListFilters; fi
           ) : items.length === 0 ? (
             <div className="p-4">
               {!hasChannel && !filtered ? (
-                <EmptyState
-                  icon={Cable}
-                  title="هنوز کانالی وصل نکرده‌اید"
-                  description="برای دیدن پیام مشتری‌ها، واتس‌اپ، اینستاگرام یا تلگرام فروشگاه را وصل کنید."
-                  action={<Link href="/panel/channels" className={buttonVariants({ className: "min-h-11" })}>وصل کردن کانال</Link>}
-                />
+                canConnect ? (
+                  <EmptyState
+                    icon={Cable}
+                    title="هنوز کانالی وصل نکرده‌اید"
+                    description="برای دیدن پیام مشتری‌ها، واتس‌اپ، اینستاگرام یا تلگرام فروشگاه را وصل کنید."
+                    action={<Link href="/panel/channels" className={buttonVariants({ className: "min-h-11" })}>وصل کردن کانال</Link>}
+                  />
+                ) : (
+                  <EmptyState
+                    icon={Cable}
+                    title="هنوز کانالی وصل نشده است"
+                    description="پیام مشتری‌ها وقتی این‌جا می‌آید که واتس‌اپ، اینستاگرام یا تلگرام فروشگاه وصل شود. این بخش را مالک فروشگاه تنظیم می‌کند."
+                  />
+                )
               ) : filtered ? (
                 <EmptyState
                   icon={SearchX}

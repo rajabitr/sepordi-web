@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import type { ActionResult } from "@/components/panel/overview/action-result";
 import { actionError } from "@/components/panel/overview/settle";
 import { isCardNumber, isIban, normalizeCardNumber, normalizeIban } from "@/lib/persian";
-import { requireSeller } from "@/server/auth/session";
+import { requireShopOwner } from "@/server/auth/session";
 import * as bizin from "@/server/bizin/client";
 
 export interface PaymentDetailsInput {
@@ -24,7 +24,7 @@ export interface PaymentDetailsView {
 }
 
 export async function savePaymentDetailsAction(input: PaymentDetailsInput): Promise<ActionResult<PaymentDetailsView>> {
-  const { shop } = await requireSeller();
+  const { shop } = await requireShopOwner();
   const card = normalizeCardNumber(String(input.card_number ?? ""));
   const iban = normalizeIban(String(input.iban ?? ""));
   const hasIban = iban.length > 2;

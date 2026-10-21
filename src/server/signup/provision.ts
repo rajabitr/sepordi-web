@@ -8,10 +8,11 @@ import { createTenant } from "@/server/bizin/client";
 import { isBizinError, type BizinError } from "@/server/bizin/error";
 import { bizinErrorMessage, toFarsiError } from "@/server/bizin/errors-fa";
 import { getDb, tx } from "@/server/db";
-import { shops, users, type ShopRow } from "@/server/db/repo";
+import { members, shops, users, type ShopRow } from "@/server/db/repo";
 import { hit } from "@/server/auth/rate-limit";
 
 export const EMAIL_IN_USE_FA = "این ایمیل قبلاً در سامانه ثبت شده؛ لطفاً ایمیل دیگری وارد کنید.";
+export const REMOVED_FROM_SHOP_FA = "دسترسی شما به فروشگاهتان برداشته شده است. از مالک فروشگاه بخواهید دوباره شما را به تیم دعوت کند.";
 
 export interface SignupError {
   message: string;
@@ -67,8 +68,13 @@ export async function provisionShop(userId: string, fields: BusinessFields): Pro
   const user = users.byId(userId);
   if (!user) return { ok: false, error: { message: "حساب شما پیدا نشد. دوباره وارد شوید.", retryable: false } };
 
+  const joined = members.shopFor(userId);
+  if (joined?.shop.bizin_tenant_id) return { ok: true, shop: joined.shop, created: false };
   const existing = shops.byUserId(userId);
-  if (existing?.bizin_tenant_id) return { ok: true, shop: existing, created: false };
+  if (existing?.bizin_tenant_id) {
+    // The creator was removed from their own shop's team; a second business would break one-shop-per-user.
+    return { ok: false, error: { message: REMOVED_FROM_SHOP_FA, retryable: false } };
+  }
 
   const fieldErrors = checkBusiness(fields);
   if (Object.keys(fieldErrors).length) {

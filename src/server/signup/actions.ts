@@ -4,8 +4,9 @@ import { redirect } from "next/navigation";
 
 import { safeNextPath, type BusinessErrors, type BusinessFields } from "@/components/auth/rules";
 import { createSession, getSession, isAdminUser } from "@/server/auth/session";
-import { shops } from "@/server/db/repo";
+import { members } from "@/server/db/repo";
 import { clientIp } from "@/server/http/client-ip";
+import { acceptPendingInvite } from "@/server/team/team";
 
 import { provisionShop, type SignupError } from "./provision";
 import { registerWithPassword, sendCode, signInWithCode, signInWithPassword, type AuthError } from "./sign-in";
@@ -21,8 +22,10 @@ export type CodeSent = { ok: true; resendAfterSeconds: number } | { ok: false; e
 export type StepResult = { ok: true } | { ok: false; error: AuthError };
 export type SignupResult = { ok: false; error: SignupError; fieldErrors?: BusinessErrors };
 
+/** Joins the user to a shop that invited their number, then tells whether they have a shop to land in. */
 function hasShop(userId: string): boolean {
-  return Boolean(shops.byUserId(userId)?.bizin_tenant_id);
+  acceptPendingInvite(userId);
+  return Boolean(members.shopFor(userId)?.shop.bizin_tenant_id);
 }
 
 export async function sendCodeAction(phone: unknown): Promise<CodeSent> {
@@ -44,7 +47,7 @@ export async function loginWithPasswordAction(phone: unknown, password: unknown,
   redirect(hasShop(r.userId) ? safeNextPath(next) : "/register?step=shop");
 }
 
-/** Signup step 2 by SMS code. A number that already has a shop is simply signed in. */
+/** Signup step 2 by SMS code. A number that already has a shop, or an invite to one, is simply signed in. */
 export async function verifySignupCodeAction(phone: unknown, code: unknown): Promise<StepResult> {
   const r = signInWithCode(str(phone, 32), str(code, 16), await clientIp());
   if (!r.ok) return r;
@@ -57,6 +60,7 @@ export async function setSignupPasswordAction(phone: unknown, password: unknown)
   const r = await registerWithPassword(str(phone, 32), str(password, 512), await clientIp());
   if (!r.ok) return r;
   await createSession(r.userId);
+  if (hasShop(r.userId)) redirect("/panel");
   return { ok: true };
 }
 
@@ -65,6 +69,7 @@ export async function completeSignupAction(input: unknown): Promise<SignupResult
   const session = await getSession();
   if (!session) redirect("/register");
   if (isAdminUser(session.user)) redirect("/admin");
+  if (hasShop(session.user.id)) redirect("/panel");
   const raw = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
   const fields: BusinessFields = {
     shopName: str(raw.shopName, 200),

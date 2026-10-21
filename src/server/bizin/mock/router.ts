@@ -148,6 +148,74 @@ function finishJob(c: Ctx, job: Schemas["CatalogImportJob"] | Schemas["Onboardin
   return ok(job, 202);
 }
 
+/** RFC 4180 lines of a CSV file: quoted fields, doubled quotes, CRLF or LF. */
+function parseCsv(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = "";
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"' && text[i + 1] === '"') { field += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else field += ch;
+    } else if (ch === '"') quoted = true;
+    else if (ch === ",") { row.push(field); field = ""; }
+    else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(field); field = "";
+      if (row.some((f) => f !== "")) rows.push(row);
+      row = [];
+    } else field += ch;
+  }
+  row.push(field);
+  if (row.some((f) => f !== "")) rows.push(row);
+  return rows;
+}
+
+/** A file job's products as §8.20 groups them: one per external_id, every line adding its pictures (at most 8). */
+async function fileRows(c: Ctx, t: MockTenant) {
+  const file = c.form?.get("file");
+  if (!file || typeof file === "string") return fail(400, "file_field_missing");
+  const [header = [], ...lines] = parseCsv((await file.text()).replace(/^\uFEFF/, ""));
+  const col = (name: string) => header.indexOf(name);
+  if (col("external_id") < 0 || col("variant_external_id") < 0) fail(422, "columns_missing");
+  const byExt = new Map<string, Schemas["CatalogImportRow"] & { image_urls: string[] }>();
+  lines.forEach((cells, i) => {
+    const ext = cells[col("external_id")] ?? "";
+    const urls = col("image_urls") < 0 ? [] : (cells[col("image_urls")] ?? "").split(/[|,;\n\r\t]/).map((u) => u.trim()).filter(Boolean);
+    const row = byExt.get(ext);
+    if (row) {
+      row.lines.push(i + 2);
+      row.image_urls.push(...urls);
+      return;
+    }
+    const exists = t.products.some((p) => p.external_id === ext);
+    byExt.set(ext, {
+      line: i + 2, lines: [i + 2], external_id: ext, title: cells[col("title")] ?? "", action: exists ? "update" : "create",
+      errors: [], warnings: [], product_id: null, variant_ids: [], image_urls: urls,
+    });
+  });
+  return [...byExt.values()];
+}
+
+/** A committed file job appends its pictures, as Bizin's import does: never replaces, skips past the cap of 8. */
+function attachImages(t: MockTenant, rows: (Schemas["CatalogImportRow"] & { image_urls: string[] })[]) {
+  t.productImages ??= new Map();
+  for (const row of rows) {
+    const have = t.productImages.get(row.external_id) ?? [];
+    for (const url of row.image_urls) {
+      if (have.includes(url)) continue;
+      if (!/^https?:\/\//.test(url)) { if (!row.warnings.includes("image_failed")) row.warnings.push("image_failed"); continue; }
+      if (have.length >= 8) { row.warnings.push("image_skipped"); break; }
+      have.push(url);
+    }
+    t.productImages.set(row.external_id, have);
+    row.product_id = t.products.find((p) => p.external_id === row.external_id)?.id ?? null;
+  }
+}
+
 // ---- handlers ----------------------------------------------------------------------------------------------
 
 const routes: [TransportRequest["method"], RegExp, Handler][] = [
@@ -289,10 +357,16 @@ const routes: [TransportRequest["method"], RegExp, Handler][] = [
     p.active = false;
     return noContent();
   }],
-  ["POST", /^\/tenants\/([^/]+)\/catalog-import-jobs$/, (c) => {
+  ["POST", /^\/tenants\/([^/]+)\/catalog-import-jobs$/, async (c) => {
     const t = tenant(c);
-    const rows = c.form ? 0 : ((obj(c).rows as unknown[] | undefined) ?? []).length;
+    const parsed = c.form ? await fileRows(c, t) : null;
+    const rows = parsed ? parsed.length : ((obj(c).rows as unknown[] | undefined) ?? []).length;
     const job: Schemas["CatalogImportJob"] = { ...newJob(c, "products", rows), tenant: { external_business_id: t.detail.tenant.external_business_id } };
+    if (parsed) {
+      const updates = parsed.filter((r) => r.action === "update").length;
+      job.counts = { ...job.counts, will_create: rows - updates, will_update: updates };
+      (t.catalogRows ??= new Map()).set(job.id, parsed);
+    }
     t.catalogJobs.unshift(job);
     return ok(job, 201);
   }],
@@ -303,11 +377,27 @@ const routes: [TransportRequest["method"], RegExp, Handler][] = [
   ["GET", /^\/tenants\/([^/]+)\/catalog-import-jobs\/([^/]+)$/, (c) =>
     ok(tenant(c).catalogJobs.find((j) => j.id === c.params[1]) ?? fail(404, "import_job_not_found"))],
   ["GET", /^\/tenants\/([^/]+)\/catalog-import-jobs\/([^/]+)\/rows$/, (c) => {
-    if (!tenant(c).catalogJobs.some((j) => j.id === c.params[1])) fail(404, "import_job_not_found");
-    return ok({ rows: [], next_cursor: null });
+    const t = tenant(c);
+    if (!t.catalogJobs.some((j) => j.id === c.params[1])) fail(404, "import_job_not_found");
+    const action = c.query.get("action");
+    const rows = (t.catalogRows?.get(c.params[1]) ?? []).filter((r) => !action || r.action === action).map((r) => {
+      const { image_urls, ...row } = r;
+      void image_urls;
+      return row;
+    });
+    return ok({ rows, next_cursor: null });
   }],
-  ["POST", /^\/tenants\/([^/]+)\/catalog-import-jobs\/([^/]+)\/(commit|cancel)$/, (c) =>
-    finishJob(c, tenant(c).catalogJobs.find((j) => j.id === c.params[1]) ?? fail(404, "import_job_not_found"), c.params[2])],
+  ["POST", /^\/tenants\/([^/]+)\/catalog-import-jobs\/([^/]+)\/(commit|cancel)$/, (c) => {
+    const t = tenant(c);
+    const job = t.catalogJobs.find((j) => j.id === c.params[1]) ?? fail(404, "import_job_not_found");
+    const res = finishJob(c, job, c.params[2]);
+    const rows = t.catalogRows?.get(job.id);
+    if (c.params[2] === "commit" && rows) {
+      attachImages(t, rows);
+      job.result = { created: job.counts.will_create, updated: job.counts.will_update, unchanged: 0, failed: 0, not_attempted: 0 };
+    }
+    return res;
+  }],
 
   // assistant, policies, payment details, shipping
   ["GET", /^\/tenants\/([^/]+)\/assistant$/, (c) => ok(tenant(c).assistant)],

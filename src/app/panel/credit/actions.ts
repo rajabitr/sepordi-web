@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 
 import type { ActionResult } from "@/components/panel/overview/action-result";
-import { requireSeller } from "@/server/auth/session";
+import { requireShopOwner } from "@/server/auth/session";
 import { createCardToCardOrder, startZarinpalOrder } from "@/server/credit/orders";
 
 const START_ERRORS = {
@@ -22,14 +22,14 @@ const CARD_ERRORS = {
 
 /** The Zarinpal payment page for the plan; the browser goes there and comes back to /api/payments/zarinpal/callback. */
 export async function startZarinpalAction(planCode: string): Promise<ActionResult<{ url: string }>> {
-  const { user, shop } = await requireSeller();
+  const { user, shop } = await requireShopOwner();
   const r = await startZarinpalOrder(shop, String(planCode ?? ""), { mobile: user.phone });
   if (!r.ok) return { ok: false, message: START_ERRORS[r.error] };
   return { ok: true, data: { url: r.url } };
 }
 
 export async function cardToCardAction(planCode: string, reference: string): Promise<ActionResult> {
-  const { shop } = await requireSeller();
+  const { shop } = await requireShopOwner();
   const r = createCardToCardOrder(shop, String(planCode ?? ""), String(reference ?? ""));
   if (!r.ok) return { ok: false, field: r.error === "reference_invalid" ? "reference" : undefined, message: CARD_ERRORS[r.error] };
   revalidatePath("/panel/credit");

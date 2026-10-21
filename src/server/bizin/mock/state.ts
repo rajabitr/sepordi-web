@@ -35,6 +35,10 @@ export interface MockTenant {
   media: Map<string, MockMedia>;
   entitlements: Schemas["ShopEntitlements"];
   catalogJobs: Schemas["CatalogImportJob"][];
+  /** The product rows of each file job, by job id. */
+  catalogRows?: Map<string, (Schemas["CatalogImportRow"] & { image_urls: string[] })[]>;
+  /** Pictures a committed file job attached, by product ext; the Partner product shape carries none. */
+  productImages?: Map<string, string[]>;
 }
 
 export interface MockWorld {

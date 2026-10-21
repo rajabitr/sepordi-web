@@ -12,6 +12,7 @@ import { requireSeller } from "@/server/auth/session";
 import * as bizin from "@/server/bizin/client";
 
 import { LoadError } from "./parts";
+import { setupSteps } from "./setup-steps";
 import { settle } from "./settle";
 import { StatsView } from "./stats-view";
 
@@ -44,38 +45,33 @@ export function WelcomeSkeleton() {
   );
 }
 
+const OWNER_SETS_IT = "این بخش را مالک فروشگاه تنظیم می‌کند.";
+
 // ---- credit banner ----------------------------------------------------------------------------------------
 
 export async function CreditBanner() {
-  const { shop } = await requireSeller();
+  const { shop, role } = await requireSeller();
   const tenant = await settle(bizin.getTenant(shop.external_business_id));
   if (!tenant.ok || tenant.data.credit.state !== "exhausted") return null;
   return (
     <Alert variant="warning" icon={Wallet} title="اعتبار دستیار تمام شده است">
       <p>تا اعتبار را شارژ نکنید، دستیار به پیام مشتری‌ها جواب نمی‌دهد و گفت‌وگوها منتظر شما می‌مانند.</p>
-      <Link href="/panel/credit" className={cn(buttonVariants({ variant: "default", size: "md" }), "mt-3 h-11")}>
-        خرید اعتبار
-        <ArrowLeft className="size-4" strokeWidth={2} />
-      </Link>
+      {role === "owner" ? (
+        <Link href="/panel/credit" className={cn(buttonVariants({ variant: "default", size: "md" }), "mt-3 h-11")}>
+          خرید اعتبار
+          <ArrowLeft className="size-4" strokeWidth={2} />
+        </Link>
+      ) : (
+        <p className="mt-3">اعتبار را مالک فروشگاه شارژ می‌کند.</p>
+      )}
     </Alert>
   );
 }
 
 // ---- setup checklist --------------------------------------------------------------------------------------
 
-type StepState = "done" | "todo" | "unknown";
-
-interface Step {
-  title: string;
-  hint: string;
-  href: string;
-  action: string;
-  state: StepState;
-  error?: string;
-}
-
 export async function SetupChecklist() {
-  const { shop } = await requireSeller();
+  const { shop, role } = await requireSeller();
   const ext = shop.external_business_id;
   const [channels, products, payment, assistant] = await Promise.all([
     settle(bizin.getTenantChannels(ext)),
@@ -84,50 +80,13 @@ export async function SetupChecklist() {
     settle(bizin.getAssistant(ext)),
   ]);
 
-  const state = <T,>(r: { ok: true; data: T } | { ok: false }, done: (d: T) => boolean): StepState =>
-    r.ok ? (done(r.data) ? "done" : "todo") : "unknown";
-  const err = (r: { ok: boolean; message?: string }) => (r.ok ? undefined : r.message);
-
-  const steps: Step[] = [
-    {
-      title: "کانال وصل است؟",
-      hint: "واتس‌اپ، اینستاگرام یا تلگرام فروشگاه را وصل کنید تا پیام‌ها به دستیار برسد.",
-      href: "/panel/channels",
-      action: "وصل کردن کانال",
-      state: state(channels, (d) => d.channels.some((c) => c.status === "connected")),
-      error: err(channels),
-    },
-    {
-      title: "حداقل یک محصول؟",
-      hint: "دستیار فقط از روی محصولات شما قیمت و موجودی می‌گوید.",
-      href: "/panel/products",
-      action: "افزودن محصول",
-      state: state(products, (d) => d.products.length > 0),
-      error: err(products),
-    },
-    {
-      title: "اطلاعات کارت ثبت شده؟",
-      hint: "شماره‌ی کارتی که دستیار برای کارت‌به‌کارت به مشتری می‌دهد.",
-      href: "/panel/payments",
-      action: "ثبت کارت",
-      state: state(payment, (d) => d.configured),
-      error: err(payment),
-    },
-    {
-      title: "دستیار روشن است؟",
-      hint: "دستیار و پاسخ خودکار هر دو باید روشن باشند.",
-      href: "/panel/assistant",
-      action: "روشن کردن دستیار",
-      state: state(assistant, (d) => d.enabled && d.auto_reply),
-      error: err(assistant),
-    },
-  ];
+  const steps = setupSteps({ channels, products, payment, assistant }, role);
   const done = steps.filter((s) => s.state === "done").length;
 
   if (done === steps.length) {
     return (
       <Alert variant="success" icon={CheckCircle2} title="راه‌اندازی کامل است">
-        کانال وصل است، محصول دارید، کارت ثبت شده و دستیار روشن است.
+        کانال وصل است، محصول دارید، کارت ثبت شده، دستیار روشن است و معرفی کسب‌وکار را نوشته‌اید.
       </Alert>
     );
   }
@@ -147,7 +106,7 @@ export async function SetupChecklist() {
       </div>
       <ol className="mt-4 flex flex-col divide-y divide-border">
         {steps.map((s) => (
-          <li key={s.href} className="flex flex-col gap-3 py-4 first:pt-2 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
+          <li key={s.key} className="flex flex-col gap-3 py-4 first:pt-2 last:pb-0 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex min-w-0 gap-3">
               {s.state === "done" ? (
                 <CheckCircle2 className="mt-1 size-5 shrink-0 text-success" strokeWidth={2} aria-hidden />
@@ -164,12 +123,15 @@ export async function SetupChecklist() {
                 <p className="text-sm text-muted-foreground">{s.state === "unknown" ? s.error : s.hint}</p>
               </div>
             </div>
-            {s.state !== "done" && (
-              <Link href={s.href} className={cn(buttonVariants({ variant: "outline" }), "h-11 shrink-0 self-start sm:self-auto")}>
-                {s.action}
-                <ArrowLeft className="size-4" strokeWidth={2} />
-              </Link>
-            )}
+            {s.state !== "done" &&
+              (s.href ? (
+                <Link href={s.href} className={cn(buttonVariants({ variant: "outline" }), "h-11 shrink-0 self-start sm:self-auto")}>
+                  {s.action}
+                  <ArrowLeft className="size-4" strokeWidth={2} />
+                </Link>
+              ) : (
+                <p className="shrink-0 text-sm text-muted-foreground">{OWNER_SETS_IT}</p>
+              ))}
           </li>
         ))}
       </ol>
@@ -182,7 +144,7 @@ export function SetupChecklistSkeleton() {
     <div className="flex flex-col gap-4 rounded-surface border border-border bg-card p-4 sm:p-6" aria-busy="true">
       <Skeleton className="h-6 w-40" />
       <Skeleton className="h-2 w-full" />
-      {[0, 1, 2, 3].map((i) => (
+      {[0, 1, 2, 3, 4].map((i) => (
         <div key={i} className="flex items-center gap-3 py-2">
           <Skeleton className="size-5 rounded-full" />
           <div className="flex flex-1 flex-col gap-2">
@@ -214,7 +176,7 @@ export async function NeedsYou() {
       key: "handoff",
       icon: MessagesSquare,
       label: "نیازمند شما",
-      hint: "گفت‌وگوهایی که دستیار به شما سپرده است",
+      hint: "گفت‌وگوهایی که منتظر شما هستند؛ تا آن‌ها را به دستیار برنگردانید، دستیار جوابی نمی‌دهد",
       href: "/panel/inbox?state=handoff",
       value: handoffs.ok ? count(handoffs.data.conversations.length, Boolean(handoffs.data.next_cursor)) : null,
       zero: handoffs.ok && handoffs.data.conversations.length === 0,
@@ -297,7 +259,7 @@ export function StatsSkeleton() {
         <Skeleton className="h-10 w-48" />
       </div>
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
-        {[0, 1, 2, 3].map((i) => (
+        {[0, 1, 2, 3, 4].map((i) => (
           <Skeleton key={i} className="h-24 rounded-xl" />
         ))}
       </div>

@@ -25,6 +25,32 @@ export interface ShopRow {
   created_at: string;
 }
 
+export type MemberRole = "owner" | "agent";
+
+export interface ShopMemberRow {
+  shop_id: string;
+  user_id: string;
+  role: MemberRole;
+  created_at: string;
+}
+
+/** A member as the team screen shows them. */
+export interface TeamMember extends ShopMemberRow {
+  phone: string;
+  display_name: string;
+}
+
+export interface ShopInviteRow {
+  id: string;
+  shop_id: string;
+  /** Normalised 09xxxxxxxxx. */
+  phone: string;
+  role: MemberRole;
+  invited_by: string | null;
+  created_at: string;
+  accepted_at: string | null;
+}
+
 export interface WebhookEventRow {
   event_id: string;
   type: string;
@@ -120,7 +146,7 @@ export const sessions = {
 // ---- shops -----------------------------------------------------------------------------------------------
 
 export const shops = {
-  /** The seller's shop. The ONLY source of an `external_business_id` for Partner API calls made for a seller. */
+  /** The shop this user created. Signup bookkeeping only: a session reaches its shop through `members.shopFor`. */
   byUserId(userId: string): ShopRow | undefined {
     return getDb().prepare("SELECT * FROM shops WHERE user_id = ? ORDER BY created_at LIMIT 1").get(userId) as ShopRow | undefined;
   },
@@ -147,6 +173,89 @@ export const shops = {
   },
   list(limit = 50, offset = 0): ShopRow[] {
     return getDb().prepare("SELECT * FROM shops ORDER BY created_at DESC LIMIT ? OFFSET ?").all(limit, offset) as unknown as ShopRow[];
+  },
+};
+
+// ---- team -----------------------------------------------------------------------------------------------
+
+export const members = {
+  /**
+   * The user's shop and role in it: the ONLY way a session reaches a shop. A user belongs to at most one shop; the
+   * oldest membership wins should a second ever exist.
+   */
+  shopFor(userId: string): { shop: ShopRow; role: MemberRole } | undefined {
+    const r = getDb()
+      .prepare(
+        "SELECT s.*, m.role AS member_role FROM shop_members m JOIN shops s ON s.id = m.shop_id WHERE m.user_id = ? ORDER BY m.created_at, s.created_at LIMIT 1",
+      )
+      .get(userId) as (ShopRow & { member_role: MemberRole }) | undefined;
+    if (!r) return undefined;
+    const { member_role: role, ...shop } = r;
+    return { shop, role };
+  },
+  get(shopId: string, userId: string): ShopMemberRow | undefined {
+    return getDb().prepare("SELECT * FROM shop_members WHERE shop_id = ? AND user_id = ?").get(shopId, userId) as ShopMemberRow | undefined;
+  },
+  list(shopId: string): TeamMember[] {
+    return getDb()
+      .prepare(
+        "SELECT m.*, u.phone, u.display_name FROM shop_members m JOIN users u ON u.id = m.user_id WHERE m.shop_id = ? ORDER BY m.role = 'agent', m.created_at",
+      )
+      .all(shopId) as unknown as TeamMember[];
+  },
+  add(shopId: string, userId: string, role: MemberRole): void {
+    getDb().prepare("INSERT INTO shop_members (shop_id, user_id, role, created_at) VALUES (?, ?, ?, ?)").run(shopId, userId, role, now());
+  },
+  setRole(shopId: string, userId: string, role: MemberRole): boolean {
+    return Number(getDb().prepare("UPDATE shop_members SET role = ? WHERE shop_id = ? AND user_id = ?").run(role, shopId, userId).changes) === 1;
+  },
+  remove(shopId: string, userId: string): boolean {
+    return Number(getDb().prepare("DELETE FROM shop_members WHERE shop_id = ? AND user_id = ?").run(shopId, userId).changes) === 1;
+  },
+  ownerCount(shopId: string): number {
+    const r = getDb().prepare("SELECT COUNT(*) AS n FROM shop_members WHERE shop_id = ? AND role = 'owner'").get(shopId) as { n: number };
+    return Number(r.n);
+  },
+};
+
+export const invites = {
+  create(input: { shopId: string; phone: string; role: MemberRole; invitedBy: string }): ShopInviteRow {
+    const row: ShopInviteRow = {
+      id: randomUUID(),
+      shop_id: input.shopId,
+      phone: input.phone,
+      role: input.role,
+      invited_by: input.invitedBy,
+      created_at: now(),
+      accepted_at: null,
+    };
+    getDb()
+      .prepare("INSERT INTO shop_invites (id, shop_id, phone, role, invited_by, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(row.id, row.shop_id, row.phone, row.role, row.invited_by, row.created_at);
+    return row;
+  },
+  pendingForShop(shopId: string): ShopInviteRow[] {
+    return getDb()
+      .prepare("SELECT * FROM shop_invites WHERE shop_id = ? AND accepted_at IS NULL ORDER BY created_at DESC")
+      .all(shopId) as unknown as ShopInviteRow[];
+  },
+  pendingFor(shopId: string, phone: string): ShopInviteRow | undefined {
+    return getDb()
+      .prepare("SELECT * FROM shop_invites WHERE shop_id = ? AND phone = ? AND accepted_at IS NULL")
+      .get(shopId, phone) as ShopInviteRow | undefined;
+  },
+  /** The oldest open invite for a number, from any shop. */
+  oldestPendingForPhone(phone: string): ShopInviteRow | undefined {
+    return getDb()
+      .prepare("SELECT * FROM shop_invites WHERE phone = ? AND accepted_at IS NULL ORDER BY created_at LIMIT 1")
+      .get(phone) as ShopInviteRow | undefined;
+  },
+  markAccepted(id: string): void {
+    getDb().prepare("UPDATE shop_invites SET accepted_at = ? WHERE id = ? AND accepted_at IS NULL").run(now(), id);
+  },
+  /** Only an open invite of `shopId`. */
+  cancel(shopId: string, id: string): boolean {
+    return Number(getDb().prepare("DELETE FROM shop_invites WHERE id = ? AND shop_id = ? AND accepted_at IS NULL").run(id, shopId).changes) === 1;
   },
 };
 

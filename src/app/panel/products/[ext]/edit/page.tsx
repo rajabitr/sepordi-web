@@ -6,8 +6,10 @@ import { Lock } from "lucide-react";
 
 import { ApiErrorAlert } from "@/components/panel/products/api-error";
 import { draftFromProduct } from "@/components/panel/products/catalog";
+import { toImagesView } from "@/components/panel/products/images-model";
 import { PageHeader } from "@/components/panel/products/page-header";
 import { ProductForm } from "@/components/panel/products/product-form";
+import { ProductImages } from "@/components/panel/products/product-images";
 import { ProductFormSkeleton } from "@/components/panel/products/skeletons";
 import { Alert } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
@@ -15,6 +17,7 @@ import { requireSeller } from "@/server/auth/session";
 import { getProduct } from "@/server/bizin/client";
 import { isBizinError } from "@/server/bizin/error";
 import { toFarsiError } from "@/server/bizin/errors-fa";
+import { getProductImages } from "@/server/product-images/store";
 
 export const metadata: Metadata = { title: "ویرایش محصول" };
 
@@ -36,7 +39,7 @@ async function EditProductData({ params }: { params: Params }) {
   if (!product.external_id) {
     return (
       <Alert icon={Lock} title="این محصول فقط خواندنی است">
-        «{product.title}» در پنل پیشرفته ساخته شده است و ویرایشش فقط از همان‌جا ممکن است.{" "}
+        «{product.title}» از راه دیگری ساخته شده و این‌جا فقط قابل مشاهده است.{" "}
         <Link href="/panel/products" className="font-medium text-brand-ink underline underline-offset-4">
           بازگشت به محصولات
         </Link>
@@ -45,8 +48,12 @@ async function EditProductData({ params }: { params: Params }) {
   }
 
   const { draft, panelOnlyVariants } = draftFromProduct(product);
+  const images = toImagesView(await getProductImages(shop.id, product.external_id));
   return (
-    <ProductForm productExt={product.external_id} initial={draft} panelOnlyVariants={panelOnlyVariants} />
+    <div className="flex flex-col gap-6">
+      <ProductForm productExt={product.external_id} initial={draft} panelOnlyVariants={panelOnlyVariants} />
+      <ProductImages productExt={product.external_id} initial={images} />
+    </div>
   );
 }
 

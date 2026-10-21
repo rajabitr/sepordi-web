@@ -12,6 +12,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { requireSeller } from "@/server/auth/session";
 import { listProducts } from "@/server/bizin/client";
 import { toFarsiError } from "@/server/bizin/errors-fa";
+import { firstImages, publicImagePath } from "@/server/product-images/store";
 
 export const metadata: Metadata = { title: "محصولات" };
 
@@ -33,9 +34,10 @@ async function ProductsData({ searchParams }: { searchParams: Promise<{ cursor?:
     return <ApiErrorAlert title="فهرست محصولات بارگذاری نشد" message={f.message} requestId={f.requestId} />;
   }
 
+  const thumbs = Object.fromEntries(Object.entries(await firstImages(shop.id).catch(() => ({}))).map(([ext, file]) => [ext, publicImagePath(file)]));
   return (
     <div className="flex flex-col gap-4">
-      <ProductsTable products={products} />
+      <ProductsTable products={products} thumbs={thumbs} />
       {(cursor || nextCursor) && (
         <nav className="flex flex-wrap justify-between gap-2" aria-label="صفحه‌های فهرست">
           {cursor ? (

@@ -164,7 +164,7 @@ async function OrderSection({ params }: { params: Params }) {
             </CardContent>
           </Card>
           <Alert variant="info" icon={Info} title="ویرایش سفارش">
-            اقلام و نشانی سفارش از این‌جا قابل ویرایش نیست. ویرایش سفارش از پنل پیشرفته انجام می‌شود.
+            ویرایش اقلام و نشانی سفارش به‌زودی به همین صفحه اضافه می‌شود.
           </Alert>
         </div>
       </div>

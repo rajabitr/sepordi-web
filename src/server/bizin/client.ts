@@ -153,9 +153,6 @@ export const getTenant = (ext: string) => json<Ok<"getTenant">>({ method: "GET",
 export const getTenantStats = (ext: string, query?: Query<"getTenantStats">) =>
   json<Ok<"getTenantStats">>({ method: "GET", path: `${T(ext)}/stats`, query });
 
-export const createActivationLink = (ext: string, opts?: WriteOptions) =>
-  json<Ok<"createActivationLink">>({ method: "POST", path: `${T(ext)}/owner/activation-link`, ...opts });
-
 // ---- channels ---------------------------------------------------------------------------------------------
 
 export const getTenantChannels = (ext: string) =>

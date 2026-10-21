@@ -1,21 +1,19 @@
 "use client";
 
 import * as React from "react";
-import { BookOpen, ExternalLink, Image as ImageIcon, LogOut, MessageSquareQuote, MonitorSmartphone, Percent, Save, Users } from "lucide-react";
+import { LogOut, MonitorSmartphone, Save } from "lucide-react";
 
-import { advancedPanelLinkAction, changePasswordAction, endOtherSessionsAction, saveProfileAction } from "@/app/panel/settings/actions";
+import { changePasswordAction, endOtherSessionsAction, saveProfileAction } from "@/app/panel/settings/actions";
 import { failureText } from "@/components/panel/overview/action-result";
-import { Alert } from "@/components/ui/alert";
 import { AlertDialog } from "@/components/ui/alert-dialog";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/ui/toast";
-import { formatDateTime } from "@/lib/date";
 import { formatIranMobile } from "@/lib/persian";
-import { cn, fa } from "@/lib/utils";
+import { fa } from "@/lib/utils";
 
 type FieldError = { field?: string; message: string } | null;
 
@@ -199,99 +197,6 @@ export function SessionsCard({ others }: { others: number }) {
           } else toast({ title: "انجام نشد", description: failureText(r), variant: "error" });
         }}
       />
-    </Card>
-  );
-}
-
-const ADVANCED = [
-  { icon: BookOpen, label: "دانش‌نامه" },
-  { icon: Users, label: "تیم" },
-  { icon: Percent, label: "تخفیف‌ها" },
-  { icon: ImageIcon, label: "عکس محصول" },
-  { icon: MessageSquareQuote, label: "لحن دستیار" },
-];
-
-export function AdvancedPanelCard() {
-  const [pending, start] = React.useTransition();
-  const [state, setState] = React.useState<{ kind: "idle" } | { kind: "link"; url: string; expiresAt?: string } | { kind: "active" } | { kind: "error"; message: string }>({
-    kind: "idle",
-  });
-
-  function open() {
-    // Opened inside the click so a popup blocker allows it; filled in once the link exists.
-    const tab = window.open("", "_blank");
-    start(async () => {
-      const r = await advancedPanelLinkAction();
-      if (!r.ok) {
-        tab?.close();
-        setState({ kind: "error", message: failureText(r) });
-      } else if (r.data.alreadyActive) {
-        tab?.close();
-        setState({ kind: "active" });
-      } else if (r.data.url) {
-        if (tab) {
-          tab.opener = null;
-          tab.location.replace(r.data.url);
-        }
-        setState({ kind: "link", url: r.data.url, expiresAt: r.data.expiresAt });
-      } else {
-        tab?.close();
-        setState({ kind: "error", message: "لینک ساخته نشد. چند دقیقه بعد دوباره امتحان کنید." });
-      }
-    });
-  }
-
-  return (
-    <Card id="advanced" className="scroll-mt-24">
-      <CardHeader>
-        <CardTitle>پنل پیشرفته</CardTitle>
-        <CardDescription>تنظیمات بیشتری که اینجا نیست، در پنل پیشرفته است؛ با همین فروشگاه و همین داده‌ها.</CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-5">
-        <ul className="flex flex-wrap gap-2">
-          {ADVANCED.map((a) => (
-            <li key={a.label} className="inline-flex items-center gap-1.5 rounded-control border border-border px-3 py-1.5 text-sm">
-              <a.icon className="size-4 text-muted-foreground" strokeWidth={1.5} />
-              {a.label}
-            </li>
-          ))}
-        </ul>
-        {state.kind === "active" ? (
-          <Alert variant="info" title="حساب پیشرفته‌ی شما فعال است">
-            <p>حساب پیشرفته‌ی شما فعال است؛ از صفحه‌ی ورود پنل پیشرفته وارد شوید.</p>
-            <a
-              href="https://www.bizin.app/login"
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(buttonVariants({ variant: "outline" }), "mt-3 h-11")}
-            >
-              ورود به پنل پیشرفته
-              <ExternalLink className="size-4" strokeWidth={1.5} />
-            </a>
-          </Alert>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <Button size="lg" className="self-start" disabled={pending} onClick={open}>
-              <Pending on={pending} icon={<ExternalLink className="size-4" strokeWidth={2} />} />
-              {pending ? "در حال ساختن لینک…" : "باز کردن پنل پیشرفته"}
-            </Button>
-            {state.kind === "link" && (
-              <p className="text-sm text-muted-foreground">
-                پنل در زبانه‌ی تازه باز شد. اگر باز نشد،{" "}
-                <a href={state.url} target="_blank" rel="noopener noreferrer" className="font-medium text-brand-ink underline underline-offset-4">
-                  اینجا را بزنید
-                </a>
-                {state.expiresAt && ` (این لینک یک‌بار مصرف است و تا ${formatDateTime(state.expiresAt)} اعتبار دارد)`}.
-              </p>
-            )}
-            {state.kind === "error" && (
-              <p role="alert" className="text-sm text-destructive">
-                {state.message}
-              </p>
-            )}
-          </div>
-        )}
-      </CardContent>
     </Card>
   );
 }

@@ -7,7 +7,7 @@ import { connection } from "next/server";
 import { cache } from "react";
 
 import { normalizeMobile } from "@/lib/phone";
-import { sessions, shops, type ShopRow, type UserRow } from "@/server/db/repo";
+import { members, sessions, type MemberRole, type ShopRow, type UserRow } from "@/server/db/repo";
 
 export const SESSION_COOKIE = "sp_session";
 const SESSION_DAYS = 30;
@@ -22,6 +22,8 @@ export interface SellerContext {
    * API on a seller's behalf: never take an ext, shop id or tenant id from a URL, form, body or header.
    */
   shop: ShopRow;
+  /** The user's role in `shop`, read on every request: a changed or removed member loses access at once. */
+  role: MemberRole;
 }
 
 export function hashToken(token: string): string {
@@ -88,8 +90,14 @@ export function isAdminUser(user: Pick<SessionUser, "role" | "phone">): boolean 
 export async function getSeller(): Promise<SellerContext | null> {
   const s = await getSession();
   if (!s || isAdminUser(s.user)) return null;
-  const shop = shops.byUserId(s.user.id);
-  return shop ? { user: s.user, shop } : null;
+  const m = members.shopFor(s.user.id);
+  return m ? { user: s.user, shop: m.shop, role: m.role } : null;
+}
+
+/** For owner-only Route Handlers: null for an agent as for a stranger. */
+export async function getShopOwner(): Promise<SellerContext | null> {
+  const s = await getSeller();
+  return s?.role === "owner" ? s : null;
 }
 
 /** Pages, layouts and Server Actions of the seller panel. Redirects when there is no seller with a shop. */
@@ -97,10 +105,20 @@ export async function requireSeller(): Promise<SellerContext> {
   const s = await getSession();
   if (!s) redirect("/login");
   if (isAdminUser(s.user)) redirect("/admin");
-  const shop = shops.byUserId(s.user.id);
+  const m = members.shopFor(s.user.id);
   // A seller whose shop was never provisioned finishes signup first.
-  if (!shop) redirect("/register?step=shop");
-  return { user: s.user, shop };
+  if (!m) redirect("/register?step=shop");
+  return { user: s.user, shop: m.shop, role: m.role };
+}
+
+/**
+ * Owner-only pages and Server Actions (team, payment details, channels, credit, shipping, assistant settings). An
+ * agent is sent back to the dashboard; hiding the menu item is not the guard, this is.
+ */
+export async function requireShopOwner(): Promise<SellerContext> {
+  const s = await requireSeller();
+  if (s.role !== "owner") redirect("/panel");
+  return s;
 }
 
 /** For staff Route Handlers that answer 401/403 instead of redirecting. */

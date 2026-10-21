@@ -8,13 +8,13 @@ import { Ellipsis } from "lucide-react";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-import { isActive, PANEL_NAV, PANEL_NAV_ITEMS } from "./nav";
+import { isActive, navFor, type PanelRole } from "./nav";
 
 /** Desktop sidebar links. `pathname` null renders the static (no active item) state used as a Suspense fallback. */
-export function PanelSidebarNav({ pathname }: { pathname?: string | null }) {
+export function PanelSidebarNav({ pathname, role }: { pathname?: string | null; role?: PanelRole }) {
   return (
     <nav aria-label="منوی پنل" className="flex flex-col gap-6">
-      {PANEL_NAV.map((group) => (
+      {navFor(role).map((group) => (
         <div key={group.title} className="flex flex-col gap-1">
           <p className="px-3 pb-1 text-sm text-muted-foreground">{group.title}</p>
           {group.items.map(({ href, label, icon: Icon }) => {
@@ -41,15 +41,16 @@ export function PanelSidebarNav({ pathname }: { pathname?: string | null }) {
   );
 }
 
-export function PanelSidebarNavLive() {
-  return <PanelSidebarNav pathname={usePathname()} />;
+export function PanelSidebarNavLive({ role }: { role: PanelRole }) {
+  return <PanelSidebarNav pathname={usePathname()} role={role} />;
 }
 
 /** Mobile bottom bar: the primary sections plus «بیشتر», which opens the rest in a bottom sheet. */
-export function PanelBottomNav({ pathname }: { pathname?: string | null }) {
+export function PanelBottomNav({ pathname, role }: { pathname?: string | null; role?: PanelRole }) {
   const [open, setOpen] = useState(false);
-  const primary = PANEL_NAV_ITEMS.filter((i) => i.primary);
-  const rest = PANEL_NAV_ITEMS.filter((i) => !i.primary);
+  const items = navFor(role).flatMap((g) => g.items);
+  const primary = items.filter((i) => i.primary);
+  const rest = items.filter((i) => !i.primary);
   const moreActive = rest.some((i) => isActive(pathname ?? null, i.href));
   const item = "flex h-16 flex-1 flex-col items-center justify-center gap-1 text-sm transition-colors duration-(--motion) ease-motion focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
 
@@ -107,6 +108,6 @@ export function PanelBottomNav({ pathname }: { pathname?: string | null }) {
   );
 }
 
-export function PanelBottomNavLive() {
-  return <PanelBottomNav pathname={usePathname()} />;
+export function PanelBottomNavLive({ role }: { role: PanelRole }) {
+  return <PanelBottomNav pathname={usePathname()} role={role} />;
 }

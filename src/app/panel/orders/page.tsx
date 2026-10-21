@@ -51,7 +51,7 @@ const show = (c: Counter | null) => (c ? (c.more ? `بیش از ${fa(c.count)}` 
 
 async function OrdersSection({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const { shop } = await requireSeller();
+  const { shop, role } = await requireSeller();
   const ext = shop.external_business_id;
   const filters = parseOrderFilters(sp);
 
@@ -69,7 +69,7 @@ async function OrdersSection({ searchParams }: { searchParams: SearchParams }) {
   const filtered = Boolean(filters.status || filters.payment || filters.from);
 
   if (listResult.status === "fulfilled" && listResult.value.orders.length === 0 && !filtered && !filters.cursor) {
-    return <NoOrdersYet />;
+    return <NoOrdersYet canConnect={role === "owner"} />;
   }
 
   return (

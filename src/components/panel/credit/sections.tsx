@@ -12,7 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/date";
 import { formatTomanValue } from "@/lib/money";
 import { fa } from "@/lib/utils";
-import { requireSeller } from "@/server/auth/session";
+import { requireShopOwner } from "@/server/auth/session";
 import * as bizin from "@/server/bizin/client";
 import { creditOrdersForShop, type CreditOrderState } from "@/server/credit/orders";
 import { payableToman, readCardToCard, readPlans, readSupport } from "@/server/credit/plans";
@@ -21,7 +21,7 @@ import { zarinpalConfig } from "@/server/credit/zarinpal";
 import { Plans } from "./plans";
 
 export async function CreditStateCard() {
-  const { shop } = await requireSeller();
+  const { shop } = await requireShopOwner();
   const tenant = await settle(bizin.getTenant(shop.external_business_id));
   if (!tenant.ok) return <LoadError title="وضعیت اعتبار بارگذاری نشد" message={tenant.message} requestId={tenant.requestId} />;
   const exhausted = tenant.data.credit.state === "exhausted";
@@ -48,7 +48,7 @@ export function CreditStateSkeleton() {
 }
 
 export async function PlansSection() {
-  await requireSeller();
+  await requireShopOwner();
   const plans = readPlans();
   const card = readCardToCard();
   if (plans.length === 0) {
@@ -85,7 +85,7 @@ const STATE: Record<CreditOrderState, { label: string; variant: "success" | "war
 };
 
 export async function MyCreditOrders() {
-  const { shop } = await requireSeller();
+  const { shop } = await requireShopOwner();
   const orders = creditOrdersForShop(shop.id);
   return (
     <Card>
@@ -136,7 +136,7 @@ export function MyCreditOrdersSkeleton() {
 }
 
 export async function SupportCard() {
-  await requireSeller();
+  await requireShopOwner();
   const s = readSupport();
   if (!s) return null;
   const tg = s.telegram.replace(/^@/, "");

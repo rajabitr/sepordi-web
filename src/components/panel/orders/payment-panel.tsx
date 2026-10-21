@@ -20,7 +20,7 @@ import { REJECT_REASONS, rejectReasonLabel, type Evidence, type RejectReason } f
 import { ReceiptSheet } from "./receipt-sheet";
 import { useIntent } from "./use-intent";
 
-const DECIDER: Record<string, string> = { user: "از پنل پیشرفته", partner_key: "از پنل سپردی", system: "خودکار" };
+const DECIDER: Record<string, string> = { user: "دستی", partner_key: "از پنل سپردی", system: "خودکار" };
 const CLOSED: Record<string, string> = {
   order_paid: "سفارش پرداخت‌شده ثبت شد؛ دیگر نیازی به بررسی نیست.",
   order_cancelled: "سفارش لغو شد؛ دیگر نیازی به بررسی نیست.",

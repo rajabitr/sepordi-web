@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Info, Save } from "lucide-react";
+import { Save } from "lucide-react";
 
 import { saveAssistantAction, type AssistantInput } from "@/app/panel/assistant/actions";
 import { failureText } from "@/components/panel/overview/action-result";
@@ -13,9 +13,11 @@ import { Field, Input } from "@/components/ui/input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Spinner } from "@/components/ui/spinner";
 import { Switch } from "@/components/ui/switch";
-import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/components/ui/toast";
+import { faNumber } from "@/lib/utils";
 
+import { checkKnowledge, compileKnowledge } from "./knowledge";
+import { KnowledgeEditor } from "./knowledge-editor";
 import { PERSONA_MAX, PROFILE_MAX } from "./limits";
 
 const LANGS = [
@@ -44,19 +46,28 @@ export function AssistantForm({ initial }: { initial: AssistantInput }) {
   const [error, setError] = React.useState<{ field?: string; message: string } | null>(null);
   const [confirm, setConfirm] = React.useState(false);
   const [pending, start] = React.useTransition();
+  const [rev, setRev] = React.useState(0);
 
   const set = <K extends keyof AssistantInput>(k: K, value: AssistantInput[K]) => setV((s) => ({ ...s, [k]: value }));
   const answering = v.enabled && v.auto_reply;
   const wasAnswering = saved.enabled && saved.auto_reply;
-  const dirty = JSON.stringify(v) !== JSON.stringify(saved);
+  const flat = (x: AssistantInput) => JSON.stringify([x.enabled, x.auto_reply, x.reply_language, x.persona_name, compileKnowledge(x.knowledge)]);
+  const dirty = flat(v) !== flat(saved);
+  const knowledge = checkKnowledge(v.knowledge);
+  const overCap = !knowledge.ok && knowledge.field === "business_profile";
 
   function save() {
     setError(null);
+    if (!knowledge.ok) {
+      setError({ field: knowledge.field, message: knowledge.message });
+      return;
+    }
     start(async () => {
       const r = await saveAssistantAction(v);
       if (r.ok) {
         setSaved(r.data);
         setV(r.data);
+        setRev((n) => n + 1);
         toast({ title: "تنظیمات دستیار ذخیره شد", variant: "success" });
       } else {
         setError({ field: r.field, message: r.message });
@@ -118,37 +129,28 @@ export function AssistantForm({ initial }: { initial: AssistantInput }) {
               error={error?.field === "persona_name" ? error.message : undefined}
             />
           </Field>
-          <Field label="معرفی فروشگاه" htmlFor="profile">
-            <p id="profile-hint" className="flex gap-2 text-sm text-muted-foreground">
-              <Info className="mt-1 size-4 shrink-0" strokeWidth={1.5} />
-              <span>
-                آنچه دستیار باید درباره‌ی فروشگاه بداند و در کاتالوگ نیست: ساعت کاری، شیوه‌ی ارسال و زمان رسیدن سفارش، شهرهایی که می‌فرستید، تعویض
-                سایز، آدرس حضوری، راه تماس. قیمت و موجودی را اینجا ننویسید؛ دستیار آن‌ها را فقط از محصولات می‌خواند.
-              </span>
-            </p>
-            <Textarea
-              id="profile"
-              aria-describedby="profile-hint"
-              rows={8}
-              maxLength={PROFILE_MAX}
-              showCount
-              value={v.business_profile}
-              onChange={(e) => set("business_profile", e.target.value)}
-              placeholder="مثال: شنبه تا پنجشنبه ساعت ۱۰ تا ۲۰ پاسخ می‌دهیم. ارسال به تهران با پیک در همان روز و به شهرستان‌ها با پست پیشتاز در ۲ تا ۴ روز کاری."
-            />
-            {error?.field === "business_profile" && <p className="text-xs text-destructive">{error.message}</p>}
-          </Field>
         </CardContent>
       </Card>
+
+      {compileKnowledge(saved.knowledge) === "" && (
+        <Alert variant="warning" title="دانش‌نامه‌ی دستیار هنوز خالی است">
+          تا خالی باشد، دستیار جواب سؤال‌هایی مثل ساعت کاری، ارسال و پرداخت را ندارد و گفت‌وگوهای بیشتری را به شما می‌سپارد.
+        </Alert>
+      )}
+      <KnowledgeEditor key={rev} value={v.knowledge} onChange={(d) => set("knowledge", d)} error={error} />
 
       {error && !error.field && <Alert variant="destructive" title="ذخیره نشد">{error.message}</Alert>}
 
       <div className="flex flex-wrap items-center gap-3">
-        <Button type="submit" size="lg" disabled={pending || !dirty}>
+        <Button type="submit" size="lg" disabled={pending || !dirty || overCap}>
           {pending ? <Spinner size="sm" className="text-current" /> : <Save className="size-4" strokeWidth={2} />}
           {pending ? "در حال ذخیره…" : "ذخیره‌ی تنظیمات"}
         </Button>
-        {dirty && !pending && <span className="text-sm text-muted-foreground">تغییرات ذخیره نشده دارید.</span>}
+        {overCap ? (
+          <span className="text-sm text-destructive">متن دانش‌نامه بیشتر از {faNumber(PROFILE_MAX)} نویسه است و ذخیره نمی‌شود.</span>
+        ) : (
+          dirty && !pending && <span className="text-sm text-muted-foreground">تغییرات ذخیره نشده دارید.</span>
+        )}
       </div>
 
       <AlertDialog

@@ -53,33 +53,6 @@ export const PRIORITY_LABEL: Record<HandoffPriority, string> = {
   urgent: "فوری",
 };
 
-const REASON_CLASS_LABEL: Record<HandoffClass, string | undefined> = {
-  PAYMENT_VERIFICATION: "بررسی رسید پرداخت",
-  POLICY_REQUIRED: "نیاز به تصمیم شما",
-  CLARIFICATION_EXHAUSTED: "دستیار منظور مشتری را متوجه نشد",
-  INTEGRATION_FAILURE: "خطا در اتصال به سرویس",
-  EXPLICIT_HUMAN_REQUEST: "مشتری خواست با شما صحبت کند",
-  HIGH_RISK_LOW_CONFIDENCE: "دستیار از جوابش مطمئن نبود",
-  SYSTEM_FAILURE: "خطای سیستم",
-  NONE: undefined,
-};
-
-/** Reason tokens are open-ended; the known ones read better than their class. */
-const REASON_LABEL: Record<string, string> = {
-  receipt_received: "مشتری رسید پرداخت فرستاد",
-  customer_request: "مشتری خواست با شما صحبت کند",
-  discount_request: "مشتری تخفیف خواست",
-};
-
-export function handoffReasonLabel(handoff: Conversation["handoff"]): string {
-  if (!handoff) return "نیاز به پاسخ شما";
-  return (
-    (handoff.reason ? REASON_LABEL[handoff.reason] : undefined) ??
-    (handoff.reason_class ? REASON_CLASS_LABEL[handoff.reason_class] : undefined) ??
-    "نیاز به پاسخ شما"
-  );
-}
-
 export const MESSAGE_STATUS_LABEL: Record<Message["status"], string> = {
   received: "دریافت شد",
   sent: "ارسال شد",

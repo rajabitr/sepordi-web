@@ -6,9 +6,6 @@ import type { ActionResult } from "@/components/panel/overview/action-result";
 import { requireSeller } from "@/server/auth/session";
 import { hashPassword, PASSWORD_MIN_LENGTH, verifyPassword } from "@/server/auth/password";
 import { hit } from "@/server/auth/rate-limit";
-import { isBizinError } from "@/server/bizin/error";
-import { toFarsiError } from "@/server/bizin/errors-fa";
-import * as bizin from "@/server/bizin/client";
 import { users } from "@/server/db/repo";
 import { fa } from "@/lib/utils";
 
@@ -51,17 +48,4 @@ export async function changePasswordAction(input: { current: string; next: strin
 export async function endOtherSessionsAction(): Promise<ActionResult<{ ended: number }>> {
   const { user } = await requireSeller();
   return { ok: true, data: { ended: await endOtherSessions(user.id) } };
-}
-
-/** «پنل پیشرفته»: a one-time bizin.app activation link for the shop's owner account (owner decision D2). */
-export async function advancedPanelLinkAction(): Promise<ActionResult<{ url: string | null; alreadyActive: boolean; expiresAt?: string }>> {
-  const { shop } = await requireSeller();
-  try {
-    const link = await bizin.createActivationLink(shop.external_business_id);
-    return { ok: true, data: { url: link.activation_url, alreadyActive: false, expiresAt: link.expires_at } };
-  } catch (e) {
-    if (isBizinError(e) && e.code === "owner_already_active") return { ok: true, data: { url: null, alreadyActive: true } };
-    const f = toFarsiError(e);
-    return { ok: false, message: f.message, requestId: f.requestId };
-  }
 }

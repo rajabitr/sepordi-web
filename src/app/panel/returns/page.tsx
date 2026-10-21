@@ -40,7 +40,7 @@ export default function ReturnsPage({ searchParams }: { searchParams: SearchPara
 
 async function CasesSection({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const { shop } = await requireSeller();
+  const { shop, role } = await requireSeller();
   const filters = parseCaseFilters(sp);
   const filtered = Boolean(filters.state || filters.kind);
 
@@ -85,9 +85,11 @@ async function CasesSection({ searchParams }: { searchParams: SearchParams }) {
         title="هنوز درخواست مرجوعی یا شکایتی نرسیده است"
         description="اگر مشتری در گفت‌وگو بخواهد کالایی را پس بدهد، عوض کند یا شکایتی داشته باشد، دستیار درخواست را ثبت می‌کند و این‌جا می‌آید."
         action={
-          <Link href="/panel/assistant" className={buttonVariants({ variant: "outline", className: "min-h-11" })}>
-            تنظیم قانون مرجوعی
-          </Link>
+          role === "owner" ? (
+            <Link href="/panel/assistant" className={buttonVariants({ variant: "outline", className: "min-h-11" })}>
+              تنظیم قانون مرجوعی
+            </Link>
+          ) : undefined
         }
       />
     );

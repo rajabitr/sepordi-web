@@ -52,12 +52,6 @@ export const CHANNEL_STATUS_FA: Record<string, string> = {
   error: "خطا",
 };
 
-export const OWNER_STATUS_FA: Record<string, string> = {
-  pending: "در انتظار فعال‌سازی",
-  active: "فعال",
-  disabled: "غیرفعال",
-};
-
 export const BRAND_MODE_FA: Record<string, string> = {
   direct: "مستقیم (نام بیزین)",
   partner: "برند سپردی",

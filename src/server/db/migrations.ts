@@ -110,4 +110,40 @@ export const MIGRATIONS: { id: number; name: string; sql: string }[] = [
       CREATE INDEX credit_orders_status ON credit_orders (status, created_at);
     `,
   },
+  {
+    id: 3,
+    name: "shop_team",
+    // shops.user_id stays the creator. The trigger makes every new shop's creator its first owner, whichever path
+    // inserted the row (signup, the dev seed, tests).
+    sql: `
+      CREATE TABLE shop_members (
+        shop_id    TEXT NOT NULL REFERENCES shops (id) ON DELETE CASCADE,
+        user_id    TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        role       TEXT NOT NULL CHECK (role IN ('owner', 'agent')),
+        created_at TEXT NOT NULL,
+        UNIQUE (shop_id, user_id)
+      );
+      CREATE INDEX shop_members_user ON shop_members (user_id, created_at);
+
+      INSERT OR IGNORE INTO shop_members (shop_id, user_id, role, created_at)
+        SELECT id, user_id, 'owner', created_at FROM shops;
+
+      CREATE TRIGGER shops_creator_is_owner AFTER INSERT ON shops
+      BEGIN
+        INSERT OR IGNORE INTO shop_members (shop_id, user_id, role, created_at) VALUES (NEW.id, NEW.user_id, 'owner', NEW.created_at);
+      END;
+
+      CREATE TABLE shop_invites (
+        id          TEXT PRIMARY KEY,
+        shop_id     TEXT NOT NULL REFERENCES shops (id) ON DELETE CASCADE,
+        phone       TEXT NOT NULL,
+        role        TEXT NOT NULL CHECK (role IN ('owner', 'agent')),
+        invited_by  TEXT REFERENCES users (id) ON DELETE SET NULL,
+        created_at  TEXT NOT NULL,
+        accepted_at TEXT
+      );
+      CREATE UNIQUE INDEX shop_invites_pending ON shop_invites (shop_id, phone) WHERE accepted_at IS NULL;
+      CREATE INDEX shop_invites_phone ON shop_invites (phone, created_at) WHERE accepted_at IS NULL;
+    `,
+  },
 ];

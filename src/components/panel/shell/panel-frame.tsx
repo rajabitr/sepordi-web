@@ -5,9 +5,9 @@ import { LifeBuoy } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 
 import { NotificationBellSlot } from "./notification-bell-slot";
-import { PanelBottomNav, PanelBottomNavLive, PanelSidebarNav, PanelSidebarNavLive } from "./panel-nav";
+import { PanelBottomNav, PanelSidebarNav } from "./panel-nav";
 import { PanelPageSkeleton, TopbarSessionSkeleton } from "./skeletons";
-import { SellerGate, TopbarSession } from "./session-parts";
+import { RoleBottomNav, RoleSidebarNav, SellerGate, TopbarSession } from "./session-parts";
 
 /**
  * The seller panel chrome: sidebar at the inline start (right) from lg up, sticky topbar, bottom bar on phones.
@@ -24,7 +24,7 @@ export function PanelFrame({ children }: { children: React.ReactNode }) {
         </div>
         <div className="flex-1 overflow-y-auto px-3 py-4">
           <Suspense fallback={<PanelSidebarNav />}>
-            <PanelSidebarNavLive />
+            <RoleSidebarNav />
           </Suspense>
         </div>
         <div className="border-t border-border p-3">
@@ -58,7 +58,7 @@ export function PanelFrame({ children }: { children: React.ReactNode }) {
       </div>
 
       <Suspense fallback={<PanelBottomNav />}>
-        <PanelBottomNavLive />
+        <RoleBottomNav />
       </Suspense>
     </div>
   );

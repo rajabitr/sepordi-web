@@ -13,18 +13,6 @@ function validExt(ext: unknown): ext is string {
   return typeof ext === "string" && ext.length > 0 && ext.length <= 128;
 }
 
-/** The URL is returned to the one browser that asked and nowhere else: not logged, not stored. */
-export async function sendActivationLinkAction(ext: string): Promise<ActionResult<{ url: string | null; expiresAt: string }>> {
-  await requireAdmin();
-  if (!validExt(ext)) return { ok: false, message: "شناسه‌ی فروشگاه درست نیست." };
-  try {
-    const link = await bizin.createActivationLink(ext);
-    return { ok: true, data: { url: link.activation_url, expiresAt: link.expires_at } };
-  } catch (e) {
-    return failed(e);
-  }
-}
-
 export interface EntitlementsChange {
   features: Record<string, boolean | null>;
   limits: Record<string, number | null>;

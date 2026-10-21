@@ -24,10 +24,10 @@ export default function InboxLayout({ children }: { children: React.ReactNode })
 }
 
 async function ListLoader() {
-  const { shop } = await requireSeller();
+  const { shop, role } = await requireSeller();
   // Only decides which empty state to show: a failed read must not hide the conversations.
   const hasChannel = await getTenantChannels(shop.external_business_id)
     .then((r) => r.channels.some((c) => c.status === "connected"))
     .catch(() => true);
-  return <ConversationList hasChannel={hasChannel} />;
+  return <ConversationList hasChannel={hasChannel} canConnect={role === "owner"} />;
 }

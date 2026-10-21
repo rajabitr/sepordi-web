@@ -275,19 +275,18 @@ export function ProductForm({
             ذخیره، فهرست تنوع‌ها را کامل جایگزین می‌کند: تنوعی که حذف کنید پاک نمی‌شود، غیرفعال می‌شود تا سفارش‌های قبلی سالم بمانند. موجودی با هر ذخیره دقیقاً همین عدد می‌شود؛ اگر در این فاصله فروشی داشته‌اید، صفحه را تازه کنید.
           </p>
           {panelOnlyVariants.length > 0 && (
-            <Alert variant="warning" title="تنوع‌های ساخته‌شده در پنل پیشرفته">
-              این تنوع‌ها این‌جا قابل ویرایش نیستند و با ذخیره غیرفعال می‌شوند: {panelOnlyVariants.join("، ")}
+            <Alert variant="warning" title="تنوع‌های فقط‌خواندنی">
+              این تنوع‌ها از راه دیگری ساخته شده‌اند، این‌جا قابل ویرایش نیستند و با ذخیره غیرفعال می‌شوند: {panelOnlyVariants.join("، ")}
             </Alert>
           )}
         </CardContent>
       </Card>
 
-      <Alert icon={ImagePlus} title="عکس محصول">
-        عکس محصول را از راه ورود اکسل با ستون image_urls اضافه کنید.{" "}
-        <Link href="/panel/products/import" className="font-medium text-brand-ink underline underline-offset-4">
-          ورود از اکسل
-        </Link>
-      </Alert>
+      {isNew && (
+        <Alert icon={ImagePlus} title="عکس محصول">
+          بعد از ساخت محصول، عکس‌ها را در صفحه‌ی ویرایش همان محصول اضافه کنید.
+        </Alert>
+      )}
 
       {formError && (
         <Alert variant="destructive" title="ذخیره نشد">

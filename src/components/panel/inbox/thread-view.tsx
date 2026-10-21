@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { ArrowDown, ArrowRight, Bot, Hand, ShoppingBag, UserRound } from "lucide-react";
+import { ArrowDown, ArrowRight, Bot, Hand, Reply, ShoppingBag, UserRound } from "lucide-react";
 
 import { AlertDialog } from "@/components/ui/alert-dialog";
 import { Avatar } from "@/components/ui/avatar";
@@ -24,7 +24,6 @@ import {
   customerName,
   filtersFromSearch,
   filtersToSearch,
-  handoffReasonLabel,
   mergeMessages,
   QUEUE_LABEL,
   QUEUES,
@@ -33,6 +32,7 @@ import {
   type HandoffQueue,
   type Message,
 } from "./model";
+import { explainHandoff } from "./handoff-reason";
 import { ChannelIcon, InlineError, PriorityBadge, RequestId, StateBadge } from "./parts";
 import { fetchResult, outcomeOf, usePoll } from "./use-poll";
 
@@ -72,6 +72,7 @@ export function ThreadView({ initialConversation, initialPage }: { initialConver
   const [now, setNow] = React.useState<number | null>(null);
   const [announcement, setAnnouncement] = React.useState("");
   const [unseen, setUnseen] = React.useState(0);
+  const composerId = React.useId();
 
   const scroller = React.useRef<HTMLDivElement>(null);
   const nearBottom = React.useRef(true);
@@ -294,12 +295,12 @@ export function ThreadView({ initialConversation, initialPage }: { initialConver
             options={QUEUES.map((q) => ({ value: q, label: `صف ${QUEUE_LABEL[q]}` }))}
           />
           {conv.state !== "human" && (
-            <Button className="min-h-11 flex-1 sm:flex-none" disabled={busy !== null} onClick={() => void claim()}>
+            <Button variant={conv.state === "handoff" ? "outline" : "default"} className="min-h-11 flex-1 sm:flex-none" disabled={busy !== null} onClick={() => void claim()}>
               {busy === "claim" ? <Spinner size="sm" className="text-current" /> : <Hand strokeWidth={2} />}
               در دست گرفتن
             </Button>
           )}
-          {conv.state !== "ai" && (
+          {conv.state === "human" && (
             <Button variant="outline" className="min-h-11 flex-1 sm:flex-none" disabled={busy !== null} onClick={() => setConfirmRelease(true)}>
               {busy === "release" ? <Spinner size="sm" className="text-current" /> : <Bot strokeWidth={2} />}
               برگرداندن به دستیار
@@ -308,7 +309,14 @@ export function ThreadView({ initialConversation, initialPage }: { initialConver
         </div>
       </header>
 
-      <StatusStrip conv={conv} now={now} />
+      <StatusStrip
+        conv={conv}
+        now={now}
+        releasing={busy === "release"}
+        disabled={busy !== null}
+        onRelease={() => setConfirmRelease(true)}
+        onReply={() => document.getElementById(composerId)?.focus()}
+      />
 
       <div ref={scroller} onScroll={onScroll} className="relative min-h-0 flex-1 overflow-y-auto px-4 py-4">
         {before && (
@@ -346,7 +354,7 @@ export function ThreadView({ initialConversation, initialPage }: { initialConver
         {announcement}
       </p>
 
-      <Composer channel={conv.channel_kind} block={block} sending={sending} onSend={send} />
+      <Composer channel={conv.channel_kind} block={block} sending={sending} onSend={send} inputId={composerId} />
 
       <AlertDialog
         open={confirmRelease}
@@ -380,24 +388,53 @@ export function ThreadView({ initialConversation, initialPage }: { initialConver
   );
 }
 
-function StatusStrip({ conv, now }: { conv: Conversation; now: number | null }) {
+function StatusStrip({
+  conv,
+  now,
+  releasing,
+  disabled,
+  onRelease,
+  onReply,
+}: {
+  conv: Conversation;
+  now: number | null;
+  releasing: boolean;
+  disabled: boolean;
+  onRelease: () => void;
+  onReply: () => void;
+}) {
   const at = (iso: string | null) => (iso ? (now ? relativeTime(iso, new Date(now)) : formatDateTime(iso)) : null);
   const order = conv.related_order;
   const windowOpen = conv.reply_window_closes_at && now !== null && Date.parse(conv.reply_window_closes_at) > now;
 
   if (conv.state !== "handoff" && conv.state !== "human" && !order && !windowOpen) return null;
+  const explanation = explainHandoff(conv.handoff);
   return (
     <div className="flex flex-col gap-2 border-b border-border px-4 py-3 text-sm">
       {conv.state === "handoff" && (
-        <div role="note" className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-control bg-warning/10 px-3 py-2">
-          <Hand className="size-4 shrink-0 text-warning" strokeWidth={2} aria-hidden />
-          <span className="font-medium">{handoffReasonLabel(conv.handoff)}</span>
-          {conv.handoff?.raised_at && (
-            <time dateTime={conv.handoff.raised_at} className="text-xs text-muted-foreground">
-              {at(conv.handoff.raised_at)}
-            </time>
-          )}
-          <PriorityBadge priority={conv.handoff?.priority} />
+        <div role="note" className="flex flex-col gap-2 rounded-control bg-warning/10 px-3 py-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <Hand className="size-4 shrink-0 text-warning" strokeWidth={2} aria-hidden />
+            <span className="font-medium">{explanation.label}</span>
+            {conv.handoff?.raised_at && (
+              <time dateTime={conv.handoff.raised_at} className="text-xs text-muted-foreground">
+                {at(conv.handoff.raised_at)}
+              </time>
+            )}
+            <PriorityBadge priority={conv.handoff?.priority} />
+          </div>
+          <p className="leading-7">{explanation.detail}</p>
+          <p className="font-medium leading-7">تا وقتی گفت‌وگو دست شماست، دستیار جواب نمی‌دهد.</p>
+          <div className="flex flex-wrap gap-2">
+            <Button className="min-h-11 flex-1 sm:flex-none" disabled={disabled} onClick={onRelease}>
+              {releasing ? <Spinner size="sm" className="text-current" /> : <Bot strokeWidth={2} />}
+              برگرداندن به دستیار
+            </Button>
+            <Button variant="outline" className="min-h-11 flex-1 sm:flex-none" onClick={onReply}>
+              <Reply strokeWidth={2} />
+              جواب دادن
+            </Button>
+          </div>
         </div>
       )}
       {conv.state === "human" && (

@@ -4,6 +4,7 @@ import { Store } from "lucide-react";
 
 import { requireSeller } from "@/server/auth/session";
 
+import { PanelBottomNavLive, PanelSidebarNavLive } from "./panel-nav";
 import { UserMenu } from "./user-menu";
 
 /** Blocks the panel content until a seller with a shop is signed in (redirects otherwise). */
@@ -14,14 +15,25 @@ export async function SellerGate({ children }: { children: React.ReactNode }) {
 
 /** Shop name and account menu; reads the session, so it renders inside a Suspense boundary. */
 export async function TopbarSession() {
-  const { user, shop } = await requireSeller();
+  const { user, shop, role } = await requireSeller();
   return (
     <>
       <div className="flex min-w-0 items-center gap-2">
         <Store className="size-5 shrink-0 text-muted-foreground" strokeWidth={1.5} />
         <span className="truncate font-semibold">{shop.name}</span>
       </div>
-      <UserMenu name={user.display_name} phone={user.phone} />
+      <UserMenu name={user.display_name} phone={user.phone} canBuyCredit={role === "owner"} />
     </>
   );
+}
+
+/** The menu for the member's role: agents never see owner-only sections. */
+export async function RoleSidebarNav() {
+  const { role } = await requireSeller();
+  return <PanelSidebarNavLive role={role} />;
+}
+
+export async function RoleBottomNav() {
+  const { role } = await requireSeller();
+  return <PanelBottomNavLive role={role} />;
 }
