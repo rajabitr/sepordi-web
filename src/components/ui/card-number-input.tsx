@@ -54,7 +54,6 @@ export function CardNumberInput({ value, onChange, className, id, autoFocus, dis
           value={formatCardNumber(digits)}
           onChange={(e) => set(e.target.value)}
           placeholder="۰۰۰۰ ۰۰۰۰ ۰۰۰۰ ۰۰۰۰"
-          maxLength={19}
           className="h-full min-w-0 flex-1 bg-transparent text-sm tracking-wide tabular-nums outline-none placeholder:text-muted-foreground/50 disabled:cursor-not-allowed"
           aria-invalid={invalid ? true : undefined}
           aria-describedby={id ? `${id}-hint` : undefined}

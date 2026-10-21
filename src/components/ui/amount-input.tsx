@@ -29,6 +29,12 @@ export function shortAmount(n: number) {
   return faNumber(n);
 }
 
+/** Typed or pasted text («۱۲٬۵۰۰», «12,500 تومان») → the amount, capped at 15 digits; null when empty. */
+export function parseAmount(raw: string): number | null {
+  const digits = en(raw).replace(/\D/g, "").replace(/^0+(?=\d)/, "").slice(0, 15);
+  return digits ? Number(digits) : null;
+}
+
 /**
  * مبلغ. Thousands separator «٬» and Persian digits while you type, the unit
  * after the number, and the amount spelled out underneath so nobody pays
@@ -46,10 +52,6 @@ export function AmountInput({ value, defaultValue = null, onChange, unit = "تو
     onChange?.(next);
   }
 
-  function type(raw: string) {
-    const digits = en(raw).replace(/\D/g, "").replace(/^0+(?=\d)/, "").slice(0, 15);
-    set(digits ? Number(digits) : null);
-  }
 
   return (
     <div className={cn("space-y-1.5", className)}>
@@ -66,7 +68,7 @@ export function AmountInput({ value, defaultValue = null, onChange, unit = "تو
           autoComplete="off"
           disabled={disabled}
           value={amount === null ? "" : faNumber(amount)}
-          onChange={(e) => type(e.target.value)}
+          onChange={(e) => set(parseAmount(e.target.value))}
           placeholder={placeholder}
           className="h-full min-w-0 flex-1 bg-transparent text-sm font-medium tabular-nums outline-none placeholder:text-muted-foreground/50 disabled:cursor-not-allowed"
           aria-invalid={invalid ? true : undefined}

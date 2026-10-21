@@ -65,6 +65,11 @@ export function formatIban(input: string): string {
   return iban.replace(/(.{4})/g, "$1 ").trim();
 }
 
+/** The digits after a fixed «IR» label, grouped as in the full IBAN: «12 0170 0000 0010 2345 6789 01». */
+export function formatIbanDigits(input: string): string {
+  return formatIban(input).slice(2).trim();
+}
+
 const BANKS: Record<string, string> = {
   "010": "بانک مرکزی", "011": "صنعت و معدن", "012": "ملت", "013": "رفاه کارگران", "014": "مسکن", "015": "سپه", "016": "کشاورزی",
   "017": "ملی", "018": "تجارت", "019": "صادرات", "020": "توسعه صادرات", "021": "پست بانک", "022": "توسعه تعاون", "051": "مؤسسه توسعه",

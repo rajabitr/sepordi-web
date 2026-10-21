@@ -3,7 +3,7 @@
 import * as React from "react";
 import { Check, Landmark } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { bankLabel, formatIban, ibanBank, isIban, normalizeIban } from "@/lib/persian";
+import { bankLabel, formatIbanDigits, ibanBank, isIban, normalizeIban } from "@/lib/persian";
 
 export interface IbanInputProps {
   value?: string;
@@ -34,7 +34,7 @@ export function IbanInput({ value, onChange, className, id }: IbanInputProps) {
         <input
           id={id}
           inputMode="numeric"
-          value={formatIban(iban).slice(3)}
+          value={formatIbanDigits(iban)}
           onChange={(e) => set(e.target.value)}
           placeholder="00 0000 0000 0000 0000 0000 00"
           className="h-full min-w-0 flex-1 bg-transparent font-mono text-sm tracking-wide outline-none placeholder:text-muted-foreground/50"
