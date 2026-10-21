@@ -17,7 +17,8 @@ MemoryMax=700M
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/var/lib/sepordi
+# Next writes its prerender/route cache under the release's .next/server.
+ReadWritePaths=/var/lib/sepordi /opt/sepordi/releases
 PrivateTmp=true
 
 [Install]
