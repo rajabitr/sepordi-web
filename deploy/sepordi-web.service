@@ -13,6 +13,8 @@ Environment=NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0 SEPORDI_DB_PATH=/var/
 ExecStart=/opt/node/bin/node server.js
 Restart=always
 RestartSec=3
+# Node exits 143 on the SIGTERM of a normal stop.
+SuccessExitStatus=143
 MemoryMax=700M
 NoNewPrivileges=true
 ProtectSystem=strict
