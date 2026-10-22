@@ -104,6 +104,9 @@ describe("notifications", () => {
     expect(describeEvent("credit.exhausted", p({ state: "exhausted" }))).toMatchObject({ title: "اعتبار دستیار تمام شد", href: "/panel/credit" });
     expect(describeEvent("channel.disconnected", p({ channel_kind: "telegram" }))?.title).toBe("اتصال تلگرام قطع شد");
     expect(describeEvent("channel.health_changed", p({ channel_kind: "whatsapp", state: "broken" }))?.href).toBe("/panel/channels");
+    const loggedOut = describeEvent("channel.disconnected", p({ channel_kind: "whatsapp", status: "banned" }));
+    expect(loggedOut?.description).toContain("دستگاه‌های متصل");
+    expect(`${loggedOut?.title} ${loggedOut?.description}`).not.toContain("مسدود");
     expect(describeEvent("case.opened", p({ code: "R-3" }))?.href).toBe("/panel/returns");
     expect(describeEvent("import.completed", p({ status: "done" }))?.href).toBe("/panel/products");
     expect(describeEvent("message.received", p({}))).toBeNull();

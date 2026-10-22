@@ -26,7 +26,7 @@ export const STATUS_LABEL: Record<ChannelStatus, string> = {
   connected: "وصل",
   pairing: "در حال اتصال",
   disconnected: "قطع",
-  banned: "مسدود",
+  banned: "خارج‌شده از دستگاه",
   error: "خطا",
 };
 
@@ -34,8 +34,19 @@ export const STATUS_VARIANT: Record<ChannelStatus, "success" | "warning" | "seco
   connected: "success",
   pairing: "warning",
   disconnected: "secondary",
-  banned: "destructive",
+  banned: "warning",
   error: "destructive",
+};
+
+/* Bizin reports every WhatsApp logout as `banned`, including a seller who removed the linked device on the phone,
+   so the copy tells them to reconnect and never says the account was banned. */
+export const LOGGED_OUT_NOTE: Record<ChannelKind, { title: string; body: string }> = {
+  whatsapp: {
+    title: "خارج‌شده از دستگاه",
+    body: "اتصال یکی از حساب‌ها قطع شده؛ معمولاً یعنی دستگاه از بخش «دستگاه‌های متصل» واتس‌اپ خارج شده. آن را حذف کنید و دوباره وصل کنید.",
+  },
+  telegram: { title: "اتصال قطع شده", body: "اتصال قطع شده؛ آن را حذف کنید و دوباره وصل کنید." },
+  instagram: { title: "اتصال قطع شده", body: "اتصال قطع شده؛ آن را حذف کنید و دوباره وصل کنید." },
 };
 
 export const HEALTH_LABEL: Record<HealthState, string> = {

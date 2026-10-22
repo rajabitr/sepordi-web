@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { CHANNEL_STATUS_FA } from "@/components/admin/model/labels";
 import type { Schemas } from "@/server/bizin/schema";
 
 import {
@@ -8,11 +9,13 @@ import {
   INSTAGRAM_REASON_FA,
   instagramReasonFa,
   isTelegramToken,
+  LOGGED_OUT_NOTE,
   normalizeTelegramToken,
   PAIRING_MAX_MS,
   pairingNext,
   pendingWhatsApp,
   STATUS_LABEL,
+  STATUS_VARIANT,
   type ChannelView,
 } from "./channel-meta";
 
@@ -61,6 +64,13 @@ describe("Telegram token", () => {
 });
 
 describe("Farsi labels", () => {
+  it("call a banned channel logged out, never blocked", () => {
+    expect(STATUS_LABEL.banned).toBe("خارج‌شده از دستگاه");
+    expect(STATUS_VARIANT.banned).toBe("warning");
+    for (const note of Object.values(LOGGED_OUT_NOTE)) expect(`${note.title} ${note.body}`).not.toContain("مسدود");
+    expect(LOGGED_OUT_NOTE.whatsapp.body).toContain("دستگاه‌های متصل");
+    expect(CHANNEL_STATUS_FA.banned).toBe(STATUS_LABEL.banned);
+  });
   it("cover every status, health state and health reason Bizin sends", () => {
     const statuses: Record<Schemas["Channel"]["status"], true> = { disconnected: true, pairing: true, connected: true, banned: true, error: true };
     for (const s of Object.keys(statuses)) expect(STATUS_LABEL[s as keyof typeof STATUS_LABEL], s).toBeTruthy();

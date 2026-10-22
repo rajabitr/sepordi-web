@@ -82,13 +82,18 @@ export function describeEvent(type: string, payload: string): Omit<NotificationI
         description: "تا اعتبار را شارژ نکنید، دستیار به پیام‌ها جواب نمی‌دهد.",
         href: "/panel/credit",
       };
-    case "channel.disconnected":
+    case "channel.disconnected": {
+      // Bizin sends `banned` for every WhatsApp logout, a device removed on the phone included.
+      const loggedOut = s(data.status) === "banned" && s(data.channel_kind) === "whatsapp";
       return {
         kind: "channel",
         title: channel ? `اتصال ${channel} قطع شد` : "اتصال یک کانال قطع شد",
-        description: "برای ادامه‌ی پاسخ‌گویی، کانال را دوباره وصل کنید.",
+        description: loggedOut
+          ? "دستگاه از بخش «دستگاه‌های متصل» واتس‌اپ خارج شده؛ آن را حذف کنید و دوباره وصل کنید."
+          : "برای ادامه‌ی پاسخ‌گویی، کانال را دوباره وصل کنید.",
         href: "/panel/channels",
       };
+    }
     case "channel.health_changed": {
       const state = s(data.state);
       const fixed = state === "ok";

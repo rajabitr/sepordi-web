@@ -48,7 +48,7 @@ export const CHANNEL_STATUS_FA: Record<string, string> = {
   disconnected: "قطع",
   pairing: "در حال اتصال",
   connected: "وصل",
-  banned: "مسدود",
+  banned: "خارج‌شده از دستگاه",
   error: "خطا",
 };
 

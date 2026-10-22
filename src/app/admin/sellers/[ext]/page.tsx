@@ -99,7 +99,7 @@ async function TenantOverview({ ext }: { ext: string }) {
                   <span className="font-medium">{label(CHANNEL_KIND_FA, c.kind)}</span>
                   <span className="flex items-center gap-2 text-xs text-muted-foreground">
                     {c.connected_at && `از ${formatDate(c.connected_at)}`}
-                    <Pill tone={c.status === "connected" ? "success" : c.status === "pairing" ? "warning" : c.status === "disconnected" ? "neutral" : "danger"}>
+                    <Pill tone={c.status === "connected" ? "success" : c.status === "pairing" || c.status === "banned" ? "warning" : c.status === "disconnected" ? "neutral" : "danger"}>
                       {label(CHANNEL_STATUS_FA, c.status)}
                     </Pill>
                   </span>

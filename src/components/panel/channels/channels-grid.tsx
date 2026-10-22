@@ -19,6 +19,7 @@ import {
   HEALTH_LABEL,
   HEALTH_VARIANT,
   healthReasonFa,
+  LOGGED_OUT_NOTE,
   STATUS_LABEL,
   STATUS_VARIANT,
   type ChannelKind,
@@ -126,6 +127,11 @@ export function ChannelsGrid({ channels }: { channels: ChannelView[] }) {
                 <CardDescription className="leading-7">{INTRO[kind]}</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-1 flex-col gap-4">
+                {accounts.some((c) => c.status === "banned") && (
+                  <Alert variant="warning" title={LOGGED_OUT_NOTE[kind].title}>
+                    {LOGGED_OUT_NOTE[kind].body}
+                  </Alert>
+                )}
                 {accounts.length > 0 ? (
                   <ul className="flex flex-col gap-3" aria-label={`حساب‌های ${CHANNEL_LABEL[kind]}`}>
                     {accounts.map((c) => (
@@ -154,12 +160,6 @@ export function ChannelsGrid({ channels }: { channels: ChannelView[] }) {
           );
         })}
       </div>
-
-      {channels.some((c) => c.status === "banned") && (
-        <Alert variant="destructive" title="حساب مسدود">
-          یکی از حساب‌ها را خود سرویس (واتس‌اپ، تلگرام یا اینستاگرام) مسدود کرده است. آن را جدا کنید و حساب دیگری وصل کنید.
-        </Alert>
-      )}
 
       {whatsApp && <WhatsAppDialog channelId={whatsApp.resume} onClose={() => setWhatsApp(null)} />}
       {telegram && <TelegramDialog onClose={() => setTelegram(false)} />}
