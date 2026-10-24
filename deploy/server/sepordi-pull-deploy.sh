@@ -235,7 +235,8 @@ main() {
 
   log "deploying $short ($sha)"
   tmp="$(mktemp "$STATE/release.XXXXXX")"
-  trap 'rm -f "$tmp"' EXIT
+  # Expanded now: `tmp` is local, and under `set -u` the EXIT trap runs after this function has returned.
+  trap "rm -f '$tmp'" EXIT
   git -C "$REPO" cat-file blob "$commit:release.tgz" > "$tmp" || fail "release.tgz missing from the deploy branch"
   [ "$(sha256_of "$tmp")" = "$want_sum" ] || fail "release.tgz sha256 does not match the manifest"
 
