@@ -37,6 +37,8 @@ export interface VariantDraft {
   /** Empty while «نامحدود» is on. */
   stock: string;
   unlimited: boolean;
+  /** The level the form loaded, null on a row the seller added. A save keeps the live level of an unchanged row. */
+  base: { stock: number | null } | null;
 }
 
 export interface ProductDraft {
@@ -115,6 +117,13 @@ export function groupDigits(input: string): string {
 
 const isStr = (v: unknown): v is string => typeof v === "string";
 
+function isBase(b: unknown): boolean {
+  if (b === null) return true;
+  if (!b || typeof b !== "object") return false;
+  const s = (b as Record<string, unknown>).stock;
+  return s === null || (typeof s === "number" && Number.isSafeInteger(s) && s >= 0);
+}
+
 /** A Server Action argument is whatever the client sent: check the shape before reading it. */
 export function isProductDraft(x: unknown): x is ProductDraft {
   if (!x || typeof x !== "object") return false;
@@ -126,7 +135,10 @@ export function isProductDraft(x: unknown): x is ProductDraft {
     d.variants.every((v: unknown) => {
       if (!v || typeof v !== "object") return false;
       const r = v as Record<string, unknown>;
-      return isStr(r.key) && (r.ext === null || isStr(r.ext)) && isStr(r.title) && isStr(r.price) && isStr(r.stock) && typeof r.unlimited === "boolean";
+      return (
+        isStr(r.key) && (r.ext === null || isStr(r.ext)) && isStr(r.title) && isStr(r.price) && isStr(r.stock) && typeof r.unlimited === "boolean" &&
+        isBase(r.base)
+      );
     })
   );
 }
@@ -225,11 +237,86 @@ export function draftFromProduct(p: ProductView): { draft: ProductDraft; panelOn
             price: groupDigits(String(rialToToman(v.price))),
             stock: v.stock === null ? "" : groupDigits(String(v.stock)),
             unlimited: v.stock === null,
+            base: { stock: v.stock },
           }))
-        : [{ key: "v0", ext: null, title: "", price: "", stock: "", unlimited: true }],
+        : [{ key: "v0", ext: null, title: "", price: "", stock: "", unlimited: true, base: null }],
     },
     panelOnlyVariants,
   };
+}
+
+/** True when the row's stock differs from the level the form loaded; a new row always counts as changed. */
+export function stockChanged(v: VariantDraft): boolean {
+  if (!v.base) return true;
+  return (v.unlimited ? null : parseWholeNumber(v.stock)) !== v.base.stock;
+}
+
+export interface StockConflict {
+  key: string;
+  ext: string;
+  title: string;
+  /** What the form loaded, what Bizin holds now, and what the seller typed; null is «نامحدود». */
+  base: number | null;
+  live: number | null;
+  mine: number | null;
+}
+
+/**
+ * A PUT sets stock to exactly the number it carries, so a body built from what the form loaded would undo every sale
+ * since. An unchanged row takes the live level; a changed row whose live level moved since the load is a conflict
+ * the seller decides. `live` is null when the product does not exist yet.
+ */
+export function reconcileStock(
+  draft: ProductDraft,
+  body: ProductPutBody,
+  live: readonly Pick<VariantView, "external_id" | "stock">[] | null,
+): { body: ProductPutBody; conflicts: null } | { body: null; conflicts: StockConflict[] } {
+  if (!live) return { body, conflicts: null };
+  const liveByExt = new Map(live.filter((v) => v.external_id).map((v) => [v.external_id as string, v.stock]));
+  const rowByExt = new Map(draft.variants.filter((v) => v.ext).map((v) => [v.ext as string, v]));
+  const conflicts: StockConflict[] = [];
+  const variants = body.variants.map((bv) => {
+    const row = rowByExt.get(bv.external_id);
+    if (!row?.base || !liveByExt.has(bv.external_id)) return bv;
+    const now = liveByExt.get(bv.external_id) as number | null;
+    if (!stockChanged(row)) return { ...bv, stock: now };
+    if (now !== row.base.stock) {
+      conflicts.push({ key: row.key, ext: bv.external_id, title: row.title.trim(), base: row.base.stock, live: now, mine: bv.stock });
+    }
+    return bv;
+  });
+  if (conflicts.length) return { body: null, conflicts };
+  return { body: { ...body, variants }, conflicts: null };
+}
+
+/** The seller's change carried onto the live level: a restock of +5 stays +5 after the sales in between. */
+export function reapplyStock(c: StockConflict): number | null {
+  if (c.mine === null || c.base === null || c.live === null) return c.mine;
+  return Math.min(LIMITS.stockMax, Math.max(0, c.live + (c.mine - c.base)));
+}
+
+/**
+ * The draft after the seller resolved the conflicts: «mine» keeps the typed numbers, «reapply» moves each by the
+ * seller's change. Either way the baseline becomes the live level, so the next save checks against it.
+ */
+export function resolveStockConflicts(draft: ProductDraft, conflicts: readonly StockConflict[], mode: "mine" | "reapply"): ProductDraft {
+  const byKey = new Map(conflicts.map((c) => [c.key, c]));
+  return {
+    ...draft,
+    variants: draft.variants.map((v) => {
+      const c = byKey.get(v.key);
+      if (!c) return v;
+      const target = mode === "mine" ? c.mine : reapplyStock(c);
+      return { ...v, base: { stock: c.live }, unlimited: target === null, stock: target === null ? "" : groupDigits(String(target)) };
+    }),
+  };
+}
+
+const stockFa = (n: number | null) => (n === null ? "نامحدود" : fa(n.toLocaleString("en-US")).replace(/,/g, "٬"));
+
+export function stockConflictLine(c: StockConflict, index: number): string {
+  const name = c.title ? `«${c.title}»` : `تنوع ${fa(index + 1)}`;
+  return `${name}: وقتی فرم را باز کردید ${stockFa(c.base)} بود و الان ${stockFa(c.live)} است؛ عدد شما ${stockFa(c.mine)}.`;
 }
 
 /** Min and max price of the active variants, in Rial; null when none is active. */

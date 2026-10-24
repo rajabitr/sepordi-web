@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import type { MockWorld } from "@/server/bizin/mock/state";
 
+vi.mock("@/server/audit", () => ({ recordActivity: vi.fn() }));
 vi.mock("@/server/auth/session", () => ({
   getSeller: vi.fn(async () => ({
     user: { id: "u1" },
@@ -13,6 +14,24 @@ vi.mock("@/server/auth/session", () => ({
     role: "owner",
   })),
 }));
+
+const sale = { pending: false };
+vi.mock("@/server/product-images/csv", async (importOriginal) => {
+  const real = await importOriginal<typeof import("@/server/product-images/csv")>();
+  return {
+    ...real,
+    buildImageImportCsv: (...a: Parameters<typeof real.buildImageImportCsv>) => {
+      const built = real.buildImageImportCsv(...a);
+      if (sale.pending) {
+        sale.pending = false;
+        const world = (globalThis as Record<symbol, MockWorld | undefined>)[Symbol.for("sepordi.bizin.mock.world")]!;
+        const v = world.tenants.get("demo-nila")!.products.find((p) => p.external_id === a[0].external_id)!.variants[0];
+        v.stock = (v.stock ?? 1) - 1;
+      }
+      return built;
+    },
+  };
+});
 
 const { POST: upload } = await import("./route");
 const { POST: send } = await import("./send/route");
@@ -72,5 +91,24 @@ describe("product pictures through a catalogue import job (mock Bizin)", () => {
     const body = await res.json();
     expect(body.outcome).toMatchObject({ status: "done", ok: true });
     expect(body.state).toEqual({ images: [{ file, url: `/p/img/${file}`, sent: true }], pendingJobId: null });
+  });
+
+  it("does not commit a file built before a sale that lands mid-send", async () => {
+    const form = new FormData();
+    form.set("file", new File([new Uint8Array([...PNG, 1])], "side.png", { type: "image/png" }));
+    const up = await upload(new Request(`http://localhost/panel/products/${PRODUCT}/images`, { method: "POST", headers: sameOrigin, body: form }), { params });
+    expect(up.status).toBe(200);
+    const unsent: string[] = (await up.json()).images.filter((i: { sent: boolean }) => !i.sent).map((i: { file: string }) => i.file);
+
+    sale.pending = true;
+    const sent = await send(
+      new Request("http://localhost/x", { method: "POST", headers: { ...sameOrigin, "content-type": "application/json" }, body: JSON.stringify({ order: unsent }) }),
+      { params },
+    );
+    expect(sent.status).toBe(422);
+    expect((await sent.json()).error.message).toContain("موجودی");
+    const world = (globalThis as Record<symbol, MockWorld | undefined>)[Symbol.for("sepordi.bizin.mock.world")]!;
+    const jobs = world.tenants.get("demo-nila")!.catalogJobs;
+    expect(jobs[0].status).toBe("cancelled");
   });
 });

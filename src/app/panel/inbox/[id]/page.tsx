@@ -2,10 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
 
-import { requireSeller } from "@/server/auth/session";
+import { requireCapability } from "@/server/auth/session";
 import { getConversation, listMessages } from "@/server/bizin/client";
-import { UUID_RE } from "@/components/panel/inbox/model";
-import { InlineError } from "@/components/panel/inbox/parts";
+import { notEntitled, UUID_RE } from "@/components/panel/inbox/model";
+import { InlineError, NotEntitledState } from "@/components/panel/inbox/parts";
 import { ThreadSkeleton } from "@/components/panel/inbox/skeletons";
 import { ThreadView } from "@/components/panel/inbox/thread-view";
 import { buttonVariants } from "@/components/ui/button";
@@ -25,7 +25,7 @@ export default function ThreadPage({ params }: { params: Promise<{ id: string }>
 async function ThreadLoader({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!UUID_RE.test(id)) return <ThreadFailed error={NOT_FOUND} />;
-  const { shop } = await requireSeller();
+  const { shop } = await requireCapability("inbox.view");
   const ext = shop.external_business_id;
   const loaded = await Promise.all([getConversation(ext, id), listMessages(ext, id, { limit: 50 })]).then(
     ([conversation, page]) => ({ ok: true as const, conversation, page }),
@@ -36,6 +36,7 @@ async function ThreadLoader({ params }: { params: Promise<{ id: string }> }) {
 }
 
 function ThreadFailed({ error }: { error: ReturnType<typeof faError> }) {
+  if (notEntitled(error)) return <NotEntitledState className="m-4" />;
   return (
     <div className="flex flex-1 flex-col gap-4 p-4">
       <InlineError error={error} />

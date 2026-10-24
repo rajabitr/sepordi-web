@@ -162,3 +162,8 @@ export function explainHandoff(handoff: Conversation["handoff"]): HandoffExplana
 export function handoffReasonLabel(handoff: Conversation["handoff"]): string {
   return explainHandoff(handoff).label;
 }
+
+/** A reason class on its own, for the list filter. */
+export function handoffClassLabel(c: HandoffClass): string {
+  return BY_CLASS[c]?.label ?? GENERIC_HANDOFF.label;
+}

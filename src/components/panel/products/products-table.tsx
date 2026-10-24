@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import * as React from "react";
-import { Archive, Lock, Package, PencilLine } from "lucide-react";
+import { Archive, Lock, Package, PencilLine, SearchX } from "lucide-react";
 
 import { archiveProductAction } from "@/app/panel/products/actions";
 import { AlertDialog } from "@/components/ui/alert-dialog";
@@ -13,14 +13,39 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { SearchInput } from "@/components/ui/search-input";
 import { SegmentedControl } from "@/components/ui/segmented-control";
+import { Select } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/toast";
 import { formatToman } from "@/lib/money";
 import { cn, fa, faNumber } from "@/lib/utils";
 
 import { priceRange, STOCK_LABEL, stockLevel, type ProductView, type StockLevel } from "./catalog";
+import {
+  categoryOptions,
+  DEFAULT_FILTERS,
+  filterProducts,
+  filtersToSearch,
+  isFiltered,
+  type ProductFilters,
+  type StatusFilter,
+  type StockFilter,
+} from "./filter";
+import { LOAD_ALL_CAP } from "./paging";
 
-type Filter = "active" | "archived" | "all";
+/** Where the loaded list sits in the whole catalogue: the first page, a later one, or «بارگذاری همه». */
+export interface ProductsPaging {
+  firstPage: boolean;
+  nextCursor: string | null;
+  all: boolean;
+}
+
+const STOCK_OPTIONS: { value: StockFilter; label: string }[] = [
+  { value: "all", label: "همه‌ی موجودی‌ها" },
+  { value: "out", label: STOCK_LABEL.out },
+  { value: "low", label: STOCK_LABEL.low },
+  { value: "in", label: STOCK_LABEL.in },
+  { value: "unlimited", label: STOCK_LABEL.unlimited },
+];
 
 /** The product's first picture as sepordi holds it; the Partner API's product carries none. */
 function Thumb({ url }: { url: string | undefined }) {
@@ -97,18 +122,35 @@ function RowActions({ p, onArchive }: { p: ProductView; onArchive: (p: ProductVi
   );
 }
 
-export function ProductsTable({ products, thumbs = {} }: { products: ProductView[]; thumbs?: Record<string, string> }) {
+export function ProductsTable({
+  products,
+  thumbs = {},
+  initialFilters = DEFAULT_FILTERS,
+  paging = { firstPage: true, nextCursor: null, all: false },
+}: {
+  products: ProductView[];
+  thumbs?: Record<string, string>;
+  initialFilters?: ProductFilters;
+  paging?: ProductsPaging;
+}) {
   const { toast } = useToast();
-  const [query, setQuery] = React.useState("");
-  const [filter, setFilter] = React.useState<Filter>("active");
+  const [filters, setFilters] = React.useState<ProductFilters>(initialFilters);
   const [archiving, setArchiving] = React.useState<ProductView | null>(null);
 
-  const q = query.trim().toLocaleLowerCase("fa");
-  const visible = products.filter(
-    (p) =>
-      (filter === "all" || (filter === "active" ? p.active : !p.active)) &&
-      (!q || p.title.toLocaleLowerCase("fa").includes(q) || p.sku.toLocaleLowerCase().includes(q)),
-  );
+  // The history API keeps the URL shareable without a server round trip: the list is already in hand.
+  React.useEffect(() => {
+    const search = filtersToSearch(filters, window.location.search);
+    if (search !== window.location.search) window.history.replaceState(null, "", `${window.location.pathname}${search}`);
+  }, [filters]);
+
+  const setFilter = <K extends keyof ProductFilters>(k: K, v: ProductFilters[K]) => setFilters((f) => ({ ...f, [k]: v }));
+  const visible = filterProducts(products, filters);
+  const filtered = isFiltered(filters);
+  const complete = paging.firstPage && !paging.nextCursor;
+  const categories = categoryOptions(products);
+  if (filters.category && !categories.includes(filters.category)) categories.unshift(filters.category);
+  const keep = filtersToSearch(filters);
+  const loadAllHref = `/panel/products${filtersToSearch(filters, "all=1")}`;
   const readOnlyCount = products.filter((p) => !p.external_id).length;
   const thumbOf = (p: ProductView) => (p.external_id ? thumbs[p.external_id] : undefined);
 
@@ -121,18 +163,64 @@ export function ProductsTable({ products, thumbs = {} }: { products: ProductView
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <SearchInput value={query} onChange={setQuery} placeholder="جست‌وجوی نام یا کد کالا در همین صفحه…" className="sm:max-w-sm" aria-label="جست‌وجوی محصول" />
-        <SegmentedControl
-          aria-label="وضعیت محصول"
-          value={filter}
-          onChange={(v) => setFilter(v as Filter)}
-          options={[
-            { value: "active", label: "فعال" },
-            { value: "archived", label: "بایگانی" },
-            { value: "all", label: "همه" },
-          ]}
-        />
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <SearchInput
+            value={filters.q}
+            onChange={(v) => setFilter("q", v)}
+            placeholder="نام یا کد کالا…"
+            className="sm:max-w-sm"
+            aria-label="جست‌وجوی نام یا کد کالا"
+          />
+          <SegmentedControl
+            aria-label="وضعیت محصول"
+            value={filters.status}
+            onChange={(v) => setFilter("status", v as StatusFilter)}
+            options={[
+              { value: "active", label: "فعال" },
+              { value: "archived", label: "بایگانی" },
+              { value: "all", label: "همه" },
+            ]}
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2 lg:max-w-2xl">
+          <Select
+            aria-label="دسته"
+            value={filters.category}
+            onChange={(e) => setFilter("category", e.target.value)}
+            options={[{ value: "", label: "همه‌ی دسته‌ها" }, ...categories.map((c) => ({ value: c, label: c }))]}
+          />
+          <Select
+            aria-label="وضعیت موجودی"
+            value={filters.stock}
+            onChange={(e) => setFilter("stock", e.target.value as StockFilter)}
+            options={STOCK_OPTIONS}
+          />
+        </div>
+        <div className="flex min-h-11 flex-wrap items-center justify-between gap-2 text-sm text-muted-foreground">
+          <p aria-live="polite">
+            {complete
+              ? `${fa(visible.length)} از ${fa(products.length)} محصول`
+              : `جست‌وجو در محصولات بارگذاری‌شده: ${fa(visible.length)} از ${fa(products.length)} محصول`}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {filtered && (
+              <Button variant="ghost" className="min-h-11" onClick={() => setFilters({ ...DEFAULT_FILTERS })}>
+                پاک کردن فیلترها
+              </Button>
+            )}
+            {!complete && !paging.all && (
+              <Link href={loadAllHref} className={buttonVariants({ variant: "outline", className: "min-h-11" })}>
+                بارگذاری همه
+              </Link>
+            )}
+          </div>
+        </div>
+        {paging.all && paging.nextCursor && (
+          <Alert variant="warning" title={`فقط ${fa(products.length)} محصول اول بارگذاری شد`}>
+            «بارگذاری همه» حداکثر {fa(LOAD_ALL_CAP)} محصول را می‌آورد تا سهمیه‌ی درخواست‌های فروشگاه تمام نشود. برای بقیه از «صفحه‌ی بعد» استفاده کنید.
+          </Alert>
+        )}
       </div>
 
       {readOnlyCount > 0 && (
@@ -141,22 +229,41 @@ export function ProductsTable({ products, thumbs = {} }: { products: ProductView
         </Alert>
       )}
 
-      {visible.length === 0 ? (
+      {visible.length === 0 && products.length === 0 && paging.firstPage ? (
         <EmptyState
           icon={Package}
           className="min-h-64 justify-center"
-          title={products.length === 0 ? "هنوز محصولی ندارید" : "محصولی با این مشخصات پیدا نشد"}
+          title="هنوز محصولی ندارید"
+          description="دستیار قیمت و موجودی را فقط از محصولات شما می‌گوید. اولین محصول را بسازید یا فهرست را از اکسل وارد کنید."
+          action={
+            <Link href="/panel/products/new" className={buttonVariants({ variant: "brand", className: "min-h-11" })}>
+              ساخت محصول
+            </Link>
+          }
+        />
+      ) : visible.length === 0 ? (
+        <EmptyState
+          icon={SearchX}
+          className="min-h-64 justify-center"
+          title="نتیجه‌ای پیدا نشد"
           description={
-            products.length === 0
-              ? "دستیار قیمت و موجودی را فقط از محصولات شما می‌گوید. اولین محصول را بسازید یا فهرست را از اکسل وارد کنید."
-              : "عبارت جست‌وجو یا فیلتر وضعیت را تغییر دهید."
+            complete || paging.all
+              ? "هیچ محصولی با این جست‌وجو و فیلترها جور نیست. عبارت یا فیلترها را تغییر دهید."
+              : "در محصولات بارگذاری‌شده چیزی با این جست‌وجو و فیلترها نیست. شاید در صفحه‌های بعد باشد."
           }
           action={
-            products.length === 0 ? (
-              <Link href="/panel/products/new" className={buttonVariants({ variant: "brand", className: "min-h-11" })}>
-                ساخت محصول
-              </Link>
-            ) : undefined
+            <div className="flex flex-wrap justify-center gap-2">
+              {!complete && !paging.all && (
+                <Link href={loadAllHref} className={buttonVariants({ variant: "brand", className: "min-h-11" })}>
+                  بارگذاری همه
+                </Link>
+              )}
+              {filtered && (
+                <Button variant="outline" className="min-h-11" onClick={() => setFilters({ ...DEFAULT_FILTERS })}>
+                  پاک کردن فیلترها
+                </Button>
+              )}
+            </div>
           }
         />
       ) : (
@@ -236,6 +343,26 @@ export function ProductsTable({ products, thumbs = {} }: { products: ProductView
             </Table>
           </div>
         </>
+      )}
+
+      {(!paging.firstPage || paging.nextCursor) && (
+        <nav className="flex flex-wrap justify-between gap-2" aria-label="صفحه‌های فهرست">
+          {!paging.firstPage ? (
+            <Link href={`/panel/products${keep}`} className={buttonVariants({ variant: "outline", className: "min-h-11" })}>
+              صفحه‌ی اول
+            </Link>
+          ) : (
+            <span />
+          )}
+          {paging.nextCursor && (
+            <Link
+              href={`/panel/products${filtersToSearch(filters, new URLSearchParams({ cursor: paging.nextCursor }))}`}
+              className={buttonVariants({ variant: "outline", className: "min-h-11" })}
+            >
+              صفحه‌ی بعد
+            </Link>
+          )}
+        </nav>
       )}
 
       <AlertDialog

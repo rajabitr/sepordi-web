@@ -47,6 +47,13 @@ const FEATURES: { icon: React.ComponentType<{ className?: string; strokeWidth?: 
   { icon: FileSpreadsheet, title: "ورود محصولات با اکسل", body: "صدها محصول را با یک فایل اکسل یا CSV وارد کنید؛ قالب آماده در راهنما هست." },
 ];
 
+/** Bento tints rotate lavender, cream, peach; each tint pairs with the ink its icon chip reads in. */
+const TINTS = [
+  { card: "bg-surface-lavender text-surface-lavender-foreground", icon: "text-brand-ink" },
+  { card: "bg-surface-cream text-surface-cream-foreground", icon: "text-accent-rose-ink" },
+  { card: "bg-accent-peach-soft text-foreground", icon: "text-accent-peach-ink" },
+];
+
 const HONESTY = [
   { icon: Bot, title: "خودش را معرفی می‌کنه", body: "مشتری از همون اول می‌دونه داره با دستیار خودکار فروشگاه حرف می‌زنه و هر وقت بخواد، آدم جوابش را میده." },
   { icon: Ban, title: "«توقف» یعنی توقف", body: "مشتری با فرستادن «توقف» از گفت‌وگوی خودکار بیرون میاد و پیام‌هاش مستقیم به خود شما می‌رسه." },
@@ -58,11 +65,13 @@ export default function HomePage() {
 
   return (
     <>
-      <section aria-labelledby="hero-title" className="relative isolate overflow-hidden px-4 pb-16 pt-12 sm:px-6 sm:pb-24 sm:pt-20">
+      <section aria-labelledby="hero-title" className="relative isolate overflow-hidden bg-linear-to-b from-surface-cream to-background px-4 pb-16 pt-12 sm:px-6 sm:pb-24 sm:pt-20">
         <AuroraBackground className="-z-10 opacity-60" />
+        <div aria-hidden className="absolute -top-24 end-0 -z-10 size-96 rounded-full bg-accent-rose/20 blur-3xl" />
         <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
           <div className="text-center lg:text-start">
             <p className="inline-flex items-center gap-2 rounded-full border border-border bg-card/70 px-4 text-sm font-medium leading-8 text-brand-ink backdrop-blur">
+              <span aria-hidden className="size-2 rounded-full bg-accent-rose" />
               دستیار فروش برای واتس‌اپ، اینستاگرام و تلگرام
             </p>
             <h1 id="hero-title" className="mt-6 text-balance text-3xl font-bold leading-tight sm:text-5xl">
@@ -84,7 +93,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <Section labelledBy="channels-title" className="relative isolate overflow-hidden border-y border-border bg-card">
+      <Section labelledBy="channels-title" className="relative isolate overflow-hidden border-y border-border bg-surface-lavender text-surface-lavender-foreground">
         <DotsBackground className="-z-10" />
         <SectionHeading
           id="channels-title"
@@ -118,9 +127,9 @@ export default function HomePage() {
           {FEATURES.map((f, i) => (
             <li key={f.title} className={cn(f.wide && "lg:col-span-2", i === 0 && "sm:col-span-2")}>
               <Reveal delay={Math.min(i, 4) * 60} className="h-full">
-                <SpotlightCard className="h-full">
-                  <div className="flex h-full flex-col p-6">
-                    <span className="flex size-10 items-center justify-center rounded-xl bg-accent text-brand-ink">
+                <SpotlightCard className="grid h-full">
+                  <div className={cn("flex h-full flex-col rounded-lg p-6", TINTS[i % TINTS.length].card)}>
+                    <span className={cn("flex size-10 items-center justify-center rounded-xl bg-card", TINTS[i % TINTS.length].icon)}>
                       <f.icon strokeWidth={2} className="size-5" />
                     </span>
                     <h3 className="mt-4 text-lg font-bold leading-tight">{f.title}</h3>
@@ -142,7 +151,9 @@ export default function HomePage() {
         <ul className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-3">
           {HONESTY.map((h) => (
             <li key={h.title} className="rounded-2xl border border-primary-foreground/15 bg-primary-foreground/5 p-6">
-              <h.icon strokeWidth={2} aria-hidden className="size-6" />
+              <span aria-hidden className="flex size-10 items-center justify-center rounded-xl bg-accent-rose text-accent-rose-foreground">
+                <h.icon strokeWidth={2} className="size-5" />
+              </span>
               <h3 className="mt-4 text-lg font-bold leading-tight">{h.title}</h3>
               <p className="mt-2 text-sm leading-6 opacity-85">{h.body}</p>
             </li>

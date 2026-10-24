@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { requireSeller } from "@/server/auth/session";
+import { requireCapability } from "@/server/auth/session";
 import { listCatalogImportJobs } from "@/server/bizin/client";
 import { toFarsiError } from "@/server/bizin/errors-fa";
 import { fa } from "@/lib/utils";
@@ -27,7 +27,7 @@ type SearchParams = Promise<{ job?: string | string[] }>;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 async function ImportSection({ searchParams }: { searchParams: SearchParams }) {
-  const { shop } = await requireSeller();
+  const { shop } = await requireCapability("products.edit");
   const raw = (await searchParams).job;
   const jobId = typeof raw === "string" && UUID_RE.test(raw) ? raw : null;
   let initial: JobSnapshotView | null = null;
@@ -49,7 +49,7 @@ async function ImportSection({ searchParams }: { searchParams: SearchParams }) {
 }
 
 async function RecentJobs() {
-  const { shop } = await requireSeller();
+  const { shop } = await requireCapability("products.edit");
   let jobs;
   try {
     jobs = (await listCatalogImportJobs(shop.external_business_id, { limit: 10 })).jobs;

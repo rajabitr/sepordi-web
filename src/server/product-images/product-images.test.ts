@@ -8,7 +8,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { GET } from "@/app/p/img/[file]/route";
 import type { Schemas } from "@/server/bizin/schema";
 
-import { buildImageImportCsv, IMAGE_IMPORT_COLUMNS } from "./csv";
+import { buildImageImportCsv, IMAGE_IMPORT_COLUMNS, stockMoved } from "./csv";
 import { MAX_IMAGE_BYTES, sniffImage } from "./magic";
 import { addProductImage, beginSend, firstImages, getProductImages, imagePath, removeProductImage, settleSend } from "./store";
 
@@ -120,6 +120,17 @@ describe("buildImageImportCsv", () => {
     updated_at: "2026-10-01T00:00:00Z",
   };
   const urls = ["https://sepordi.ir/p/img/a.jpg", "https://sepordi.ir/p/img/b.png"];
+
+  it("sees a sale between building the file and committing it (S2)", () => {
+    const withStock = (m: number | null, xl = 0): Schemas["Product"] => ({
+      ...product,
+      variants: product.variants.map((v) => (v.external_id === "tee-m" ? { ...v, stock: m } : v.external_id === "tee-xl" ? { ...v, stock: xl } : v)),
+    });
+    expect(stockMoved(product, withStock(14, 9))).toBe(false);
+    expect(stockMoved(product, withStock(13))).toBe(true);
+    expect(stockMoved(product, withStock(null))).toBe(true);
+    expect(stockMoved(product, { ...product, variants: product.variants.slice(1) })).toBe(true);
+  });
 
   /** The reading Bizin does: RFC 4180 with quoted commas, quotes and newlines. */
   function parse(csv: string): Record<string, string>[] {

@@ -2,7 +2,11 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 
+import type { MemberRole } from "@/server/team/roles";
+
 import { getDb } from "./index";
+
+export type { MemberRole } from "@/server/team/roles";
 
 export type Role = "seller" | "admin";
 
@@ -24,8 +28,6 @@ export interface ShopRow {
   bizin_tenant_id: string | null;
   created_at: string;
 }
-
-export type MemberRole = "owner" | "agent";
 
 export interface ShopMemberRow {
   shop_id: string;
@@ -128,9 +130,28 @@ export const sessions = {
   },
   /** The live session's user, or undefined when unknown or expired. */
   userFor(tokenHash: string): UserRow | undefined {
+    return sessions.lookup(tokenHash)?.user;
+  },
+  /** The live session's user and the shop it last switched to (unverified: check it against shop_members). */
+  lookup(tokenHash: string): { user: UserRow; shopId: string | null } | undefined {
+    const r = getDb()
+      .prepare("SELECT u.*, s.shop_id AS session_shop_id FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?")
+      .get(tokenHash, now()) as (UserRow & { session_shop_id: string | null }) | undefined;
+    if (!r) return undefined;
+    const { session_shop_id: shopId, ...user } = r;
+    return { user, shopId };
+  },
+  setShop(tokenHash: string, shopId: string): void {
+    getDb().prepare("UPDATE sessions SET shop_id = ? WHERE token_hash = ?").run(shopId, tokenHash);
+  },
+  /** Live sessions of a user, newest first. */
+  listForUser(userId: string): { token_hash: string; created_at: string; expires_at: string; ua: string | null }[] {
     return getDb()
-      .prepare("SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?")
-      .get(tokenHash, now()) as UserRow | undefined;
+      .prepare("SELECT token_hash, created_at, expires_at, ua FROM sessions WHERE user_id = ? AND expires_at > ? ORDER BY created_at DESC")
+      .all(userId, now()) as unknown as { token_hash: string; created_at: string; expires_at: string; ua: string | null }[];
+  },
+  deleteOthersForUser(userId: string, keepTokenHash: string): number {
+    return Number(getDb().prepare("DELETE FROM sessions WHERE user_id = ? AND token_hash <> ?").run(userId, keepTokenHash).changes);
   },
   delete(tokenHash: string): void {
     getDb().prepare("DELETE FROM sessions WHERE token_hash = ?").run(tokenHash);
@@ -180,18 +201,21 @@ export const shops = {
 
 export const members = {
   /**
-   * The user's shop and role in it: the ONLY way a session reaches a shop. A user belongs to at most one shop; the
-   * oldest membership wins should a second ever exist.
+   * The user's shop and role in it: the ONLY way a session reaches a shop. `preferredShopId` (the session's current
+   * shop) counts only while the user is still a member of it; otherwise the oldest membership wins.
    */
-  shopFor(userId: string): { shop: ShopRow; role: MemberRole } | undefined {
-    const r = getDb()
+  shopFor(userId: string, preferredShopId?: string | null): { shop: ShopRow; role: MemberRole } | undefined {
+    const all = members.shopsFor(userId);
+    return (preferredShopId ? all.find((m) => m.shop.id === preferredShopId) : undefined) ?? all[0];
+  },
+  /** Every shop the user belongs to, oldest membership first. */
+  shopsFor(userId: string): { shop: ShopRow; role: MemberRole }[] {
+    const rows = getDb()
       .prepare(
-        "SELECT s.*, m.role AS member_role FROM shop_members m JOIN shops s ON s.id = m.shop_id WHERE m.user_id = ? ORDER BY m.created_at, s.created_at LIMIT 1",
+        "SELECT s.*, m.role AS member_role FROM shop_members m JOIN shops s ON s.id = m.shop_id WHERE m.user_id = ? ORDER BY m.created_at, s.created_at",
       )
-      .get(userId) as (ShopRow & { member_role: MemberRole }) | undefined;
-    if (!r) return undefined;
-    const { member_role: role, ...shop } = r;
-    return { shop, role };
+      .all(userId) as unknown as (ShopRow & { member_role: MemberRole })[];
+    return rows.map(({ member_role: role, ...shop }) => ({ shop, role }));
   },
   get(shopId: string, userId: string): ShopMemberRow | undefined {
     return getDb().prepare("SELECT * FROM shop_members WHERE shop_id = ? AND user_id = ?").get(shopId, userId) as ShopMemberRow | undefined;
@@ -199,7 +223,7 @@ export const members = {
   list(shopId: string): TeamMember[] {
     return getDb()
       .prepare(
-        "SELECT m.*, u.phone, u.display_name FROM shop_members m JOIN users u ON u.id = m.user_id WHERE m.shop_id = ? ORDER BY m.role = 'agent', m.created_at",
+        "SELECT m.*, u.phone, u.display_name FROM shop_members m JOIN users u ON u.id = m.user_id WHERE m.shop_id = ? ORDER BY m.role <> 'owner', m.created_at",
       )
       .all(shopId) as unknown as TeamMember[];
   },
@@ -244,11 +268,11 @@ export const invites = {
       .prepare("SELECT * FROM shop_invites WHERE shop_id = ? AND phone = ? AND accepted_at IS NULL")
       .get(shopId, phone) as ShopInviteRow | undefined;
   },
-  /** The oldest open invite for a number, from any shop. */
-  oldestPendingForPhone(phone: string): ShopInviteRow | undefined {
+  /** Open invites for a number, from any shop, oldest first. */
+  pendingForPhone(phone: string): ShopInviteRow[] {
     return getDb()
-      .prepare("SELECT * FROM shop_invites WHERE phone = ? AND accepted_at IS NULL ORDER BY created_at LIMIT 1")
-      .get(phone) as ShopInviteRow | undefined;
+      .prepare("SELECT * FROM shop_invites WHERE phone = ? AND accepted_at IS NULL ORDER BY created_at")
+      .all(phone) as unknown as ShopInviteRow[];
   },
   markAccepted(id: string): void {
     getDb().prepare("UPDATE shop_invites SET accepted_at = ? WHERE id = ? AND accepted_at IS NULL").run(now(), id);

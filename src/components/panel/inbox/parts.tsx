@@ -1,6 +1,9 @@
-import { Camera, MessageCircle, Send, TriangleAlert } from "lucide-react";
+import Link from "next/link";
+import { Camera, LockKeyhole, MessageCircle, Send, TriangleAlert } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
+import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { cn } from "@/lib/utils";
 
 import { CHANNEL_LABEL, PRIORITY_LABEL, STATE_LABEL, type ChannelKind, type FaError, type HandoffPriority, type HandoffState } from "./model";
@@ -61,5 +64,22 @@ export function InlineError({ error, onRetry, className }: { error: FaError; onR
         </button>
       )}
     </div>
+  );
+}
+
+/** The shop's plan has no inbox: a calm explanation and the way to the plan, never an error box. */
+export function NotEntitledState({ className }: { className?: string }) {
+  return (
+    <EmptyState
+      icon={LockKeyhole}
+      title="این بخش در پلن فروشگاه شما فعال نیست"
+      description="صندوق پیام جزو پلن فعلی فروشگاه نیست. برای دیدن پیام مشتری‌ها و جواب دادن به آن‌ها، به بخش «اعتبار» سر بزنید."
+      action={
+        <Link href="/panel/credit" className={buttonVariants({ variant: "outline", className: "min-h-11" })}>
+          رفتن به بخش اعتبار
+        </Link>
+      }
+      className={className}
+    />
   );
 }

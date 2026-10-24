@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 
 import type { ActionResult } from "@/components/panel/overview/action-result";
 import { requireShopOwner } from "@/server/auth/session";
+import { recordActivity } from "@/server/audit";
 import { createCardToCardOrder, startZarinpalOrder } from "@/server/credit/orders";
 
 const START_ERRORS = {
@@ -25,6 +26,7 @@ export async function startZarinpalAction(planCode: string): Promise<ActionResul
   const { user, shop } = await requireShopOwner();
   const r = await startZarinpalOrder(shop, String(planCode ?? ""), { mobile: user.phone });
   if (!r.ok) return { ok: false, message: START_ERRORS[r.error] };
+  recordActivity({ user, shop }, "credit.order", { type: "plan", id: String(planCode) }, { method: "zarinpal" });
   return { ok: true, data: { url: r.url } };
 }
 
@@ -32,6 +34,7 @@ export async function cardToCardAction(planCode: string, reference: string): Pro
   const { shop } = await requireShopOwner();
   const r = createCardToCardOrder(shop, String(planCode ?? ""), String(reference ?? ""));
   if (!r.ok) return { ok: false, field: r.error === "reference_invalid" ? "reference" : undefined, message: CARD_ERRORS[r.error] };
+  recordActivity(await requireShopOwner(), "credit.order", { type: "plan", id: String(planCode) }, { method: "card_to_card" });
   revalidatePath("/panel/credit");
   return { ok: true, data: null };
 }

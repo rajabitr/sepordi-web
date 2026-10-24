@@ -1,22 +1,26 @@
 import "server-only";
 
 import Link from "next/link";
-import { UserRound, Users } from "lucide-react";
+import { Bell, History, ShieldCheck, UserRound, Users, type LucideIcon } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { requireSeller } from "@/server/auth/session";
+import { can, type Capability } from "@/server/team/roles";
 
-const TABS = [
-  { key: "account", href: "/panel/settings", label: "حساب من", icon: UserRound, ownerOnly: false },
-  { key: "team", href: "/panel/settings/team", label: "تیم", icon: Users, ownerOnly: true },
-] as const;
+const TABS: readonly { key: string; href: string; label: string; icon: LucideIcon; cap?: Capability }[] = [
+  { key: "account", href: "/panel/settings", label: "حساب من", icon: UserRound },
+  { key: "team", href: "/panel/settings/team", label: "تیم", icon: Users, cap: "team.manage" },
+  { key: "security", href: "/panel/settings/security", label: "امنیت", icon: ShieldCheck },
+  { key: "activity", href: "/panel/settings/activity", label: "فعالیت‌ها", icon: History, cap: "activity.view" },
+  { key: "notifications", href: "/panel/settings/notifications", label: "اعلان‌ها", icon: Bell },
+];
 
-export type SettingsTab = (typeof TABS)[number]["key"];
+export type SettingsTab = "account" | "team" | "security" | "activity" | "notifications";
 
-/** Settings sections; «تیم» only for an owner. Reads the session, so it renders inside a Suspense boundary. */
+/** Settings sections the member's role opens. Reads the session, so it renders inside a Suspense boundary. */
 export async function SettingsNav({ current }: { current: SettingsTab }) {
   const { role } = await requireSeller();
-  const tabs = TABS.filter((t) => !t.ownerOnly || role === "owner");
+  const tabs = TABS.filter((t) => !t.cap || can(role, t.cap));
   if (tabs.length < 2) return <SettingsNavSkeleton />;
   return (
     <nav aria-label="بخش‌های تنظیمات" className="flex min-h-11 flex-wrap gap-2 border-b border-border">

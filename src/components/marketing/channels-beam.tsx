@@ -37,7 +37,7 @@ export function ChannelsBeam() {
         {CHANNELS.map((c) => (
           <li key={c.key}>
             <Node nodeRef={refs[c.key]}>
-              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent text-brand-ink">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-accent-peach-soft text-accent-peach-ink">
                 <c.icon strokeWidth={2} aria-hidden className="size-5" />
               </span>
               <span>
@@ -49,7 +49,8 @@ export function ChannelsBeam() {
         ))}
       </ul>
 
-      <div className="flex justify-center">
+      <div className="relative flex justify-center">
+        <div aria-hidden className="absolute inset-0 -z-10 m-auto size-40 rounded-full bg-accent-peach/40 blur-2xl" />
         <div ref={hub} className="flex size-28 items-center justify-center rounded-3xl border border-border bg-card shadow-overlay">
           <Logo variant="mark" height={56} />
         </div>

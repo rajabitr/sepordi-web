@@ -12,7 +12,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime } from "@/lib/date";
 import { formatTomanValue } from "@/lib/money";
 import { fa } from "@/lib/utils";
-import { requireShopOwner } from "@/server/auth/session";
+import { requireCapability } from "@/server/auth/session";
+import { can } from "@/server/team/roles";
 import * as bizin from "@/server/bizin/client";
 import { creditOrdersForShop, type CreditOrderState } from "@/server/credit/orders";
 import { payableToman, readCardToCard, readPlans, readSupport } from "@/server/credit/plans";
@@ -21,7 +22,7 @@ import { zarinpalConfig } from "@/server/credit/zarinpal";
 import { Plans } from "./plans";
 
 export async function CreditStateCard() {
-  const { shop } = await requireShopOwner();
+  const { shop, role } = await requireCapability("credit.view");
   const tenant = await settle(bizin.getTenant(shop.external_business_id));
   if (!tenant.ok) return <LoadError title="وضعیت اعتبار بارگذاری نشد" message={tenant.message} requestId={tenant.requestId} />;
   const exhausted = tenant.data.credit.state === "exhausted";
@@ -33,7 +34,7 @@ export async function CreditStateCard() {
     >
       <p>
         {exhausted
-          ? "دستیار تا شارژ بعدی به پیام مشتری‌ها جواب نمی‌دهد و گفت‌وگوها منتظر شما می‌مانند. یکی از بسته‌های زیر را بخرید."
+          ? `دستیار تا شارژ بعدی به پیام مشتری‌ها جواب نمی‌دهد و گفت‌وگوها منتظر شما می‌مانند. ${can(role, "credit.buy") ? "یکی از بسته‌های زیر را بخرید." : "برای شارژ به مالک فروشگاه خبر دهید."}`
           : "دستیار به پیام‌ها جواب می‌دهد."}
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
@@ -47,19 +48,23 @@ export function CreditStateSkeleton() {
   return <Skeleton className="h-28 rounded-overlay" />;
 }
 
+/** The plans and their buy buttons, for the role that may buy; the others see the state and the history only. */
 export async function PlansSection() {
-  await requireShopOwner();
+  const { role } = await requireCapability("credit.view");
+  if (!can(role, "credit.buy")) return null;
   const plans = readPlans();
   const card = readCardToCard();
-  if (plans.length === 0) {
-    return <EmptyState icon={Wallet} title="بسته‌ای برای خرید تعریف نشده است" description="برای شارژ اعتبار با پشتیبانی تماس بگیرید." />;
-  }
   return (
-    <Plans
-      plans={plans.map((p) => ({ ...p, payable_toman: payableToman(p) }))}
-      gateway={zarinpalConfig() !== null}
-      card={card}
-    />
+    <section className="flex flex-col gap-4" aria-labelledby="plans-title">
+      <h2 id="plans-title" className="text-lg font-semibold leading-tight">
+        بسته‌ها
+      </h2>
+      {plans.length === 0 ? (
+        <EmptyState icon={Wallet} title="بسته‌ای برای خرید تعریف نشده است" description="برای شارژ اعتبار با پشتیبانی تماس بگیرید." />
+      ) : (
+        <Plans plans={plans.map((p) => ({ ...p, payable_toman: payableToman(p) }))} gateway={zarinpalConfig() !== null} card={card} />
+      )}
+    </section>
   );
 }
 
@@ -85,7 +90,7 @@ const STATE: Record<CreditOrderState, { label: string; variant: "success" | "war
 };
 
 export async function MyCreditOrders() {
-  const { shop } = await requireShopOwner();
+  const { shop } = await requireCapability("credit.view");
   const orders = creditOrdersForShop(shop.id);
   return (
     <Card>
@@ -136,7 +141,7 @@ export function MyCreditOrdersSkeleton() {
 }
 
 export async function SupportCard() {
-  await requireShopOwner();
+  await requireCapability("credit.view");
   const s = readSupport();
   if (!s) return null;
   const tg = s.telegram.replace(/^@/, "");

@@ -1,6 +1,7 @@
 "use server";
 
-import { requireSeller } from "@/server/auth/session";
+import { requireCapability } from "@/server/auth/session";
+import { recordActivity, type ActivityAction } from "@/server/audit";
 import {
   claimConversation,
   moveConversationQueue,
@@ -18,6 +19,7 @@ import {
 } from "@/components/panel/inbox/model";
 
 import { faError, NOT_FOUND } from "./_lib/respond";
+import { markSeen } from "./_lib/seen";
 
 /*
  * Inbox writes. The business is always the session's shop; the conversation id from the client is only a path
@@ -31,28 +33,30 @@ function bad(message: string, code: string): Result<never> {
   return { ok: false, error: { message, code } };
 }
 
-async function run<T>(id: string, key: string, fn: (ext: string) => Promise<T>): Promise<Result<T>> {
+async function run<T>(action: ActivityAction, id: string, key: string, fn: (ext: string) => Promise<T>): Promise<Result<T>> {
   if (!UUID_RE.test(id)) return { ok: false, error: NOT_FOUND };
   if (!KEY_RE.test(key)) return bad("درخواست ناقص ارسال شد. دوباره امتحان کنید.", "idempotency_key_invalid");
-  const { shop } = await requireSeller();
+  const { shop, user } = await requireCapability("inbox.reply");
   try {
-    return { ok: true, data: await fn(shop.external_business_id) };
+    const data = await fn(shop.external_business_id);
+    recordActivity({ shop, user }, action, { type: "conversation", id });
+    return { ok: true, data };
   } catch (e) {
     return { ok: false, error: faError(e) };
   }
 }
 
 export async function claimAction(id: string, key: string): Promise<Result<Conversation>> {
-  return run(id, key, (ext) => claimConversation(ext, id, { idempotencyKey: key }));
+  return run("inbox.claim", id, key, (ext) => claimConversation(ext, id, { idempotencyKey: key }));
 }
 
 export async function releaseAction(id: string, key: string): Promise<Result<Conversation & { assistant_active: boolean }>> {
-  return run(id, key, (ext) => releaseConversation(ext, id, { idempotencyKey: key }));
+  return run("inbox.release", id, key, (ext) => releaseConversation(ext, id, { idempotencyKey: key }));
 }
 
 export async function moveQueueAction(id: string, queue: HandoffQueue, key: string): Promise<Result<Conversation>> {
   if (!(QUEUES as readonly string[]).includes(queue)) return bad("این صف شناخته‌شده نیست.", "invalid_value");
-  return run(id, key, (ext) => moveConversationQueue(ext, id, { queue }, { idempotencyKey: key }));
+  return run("inbox.queue", id, key, (ext) => moveConversationQueue(ext, id, { queue }, { idempotencyKey: key }));
 }
 
 export type ReplyInput = { text: string } | { mediaId: string; caption?: string };
@@ -70,10 +74,22 @@ export async function replyAction(id: string, input: ReplyInput, key: string): P
     if (!text) return bad("متن پیام را بنویسید.", "text_required");
     body = { text };
   }
-  return run(id, key, async (ext) => {
+  return run("inbox.reply", id, key, async (ext) => {
     const out = await replyToConversation(ext, id, body, { idempotencyKey: key });
     return out.status === "sent_not_saved"
       ? ({ kind: "sent_not_saved" } as const)
       : ({ kind: "saved", message: out } as const);
   });
+}
+
+/**
+ * Marks a conversation read up to `at`, its `last_message_at` as the thread last showed it. Local only: the Partner
+ * API has no read state, and nothing reaches the customer.
+ */
+export async function markSeenAction(id: string, at: string): Promise<Result<null>> {
+  if (!UUID_RE.test(id)) return { ok: false, error: NOT_FOUND };
+  if (typeof at !== "string" || at.length > 64 || !Number.isFinite(Date.parse(at))) return bad("زمان نامعتبر است.", "invalid_value");
+  const { user, shop } = await requireCapability("inbox.view");
+  markSeen(user.id, shop.id, id, new Date(Date.parse(at)).toISOString());
+  return { ok: true, data: null };
 }

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
+import { UpcomingBookingsCard } from "@/components/panel/booking/upcoming-bookings-card";
 import {
   CreditBanner,
   NeedsYou,
@@ -26,6 +27,10 @@ export default function PanelOverviewPage({ searchParams }: { searchParams: Prom
       </Suspense>
       <Suspense fallback={<NeedsYouSkeleton />}>
         <NeedsYou />
+      </Suspense>
+      {/* No skeleton: most shops have no booking, and the card must not flash in and out for them. */}
+      <Suspense fallback={null}>
+        <UpcomingBookingsCard />
       </Suspense>
       <Suspense fallback={<SetupChecklistSkeleton />}>
         <SetupChecklist />

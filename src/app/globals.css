@@ -5,6 +5,10 @@
    glow and focus. Violet TEXT always uses --brand-ink (text-brand-ink): the logo violet is 4.2:1 on white.
    A violet FILL that carries text uses --brand-strong (bg-brand-strong text-brand-strong-foreground) for the
    same reason; --brand stays for glows, dots, accents and large display text.
+   Rose and peach (palette 2026-10) are fills, tints and chart series only: text on them is their -foreground, rose
+   or peach TEXT and icons use their -ink (the swatches are 2.2:1 and 1.6:1 on white). Lavender and cream are section
+   and card tints that carry the normal foreground, muted and brand-ink text. The chart slots are deeper tones of the
+   swatches so every series line clears 3:1 on a card.
    Token values must stay hex: src/lib/theme-contrast.test.ts parses this block and checks every pair. */
 :root {
   color-scheme: light;
@@ -35,6 +39,24 @@
   --brand-ink: #5b41e6;
   --brand-strong: #5c3dff;
   --brand-strong-foreground: #ffffff;
+
+  /* پالت */
+  --accent-rose: #fe90a3;
+  --accent-rose-foreground: #2b2451;
+  --accent-rose-ink: #ad2c5c;
+  --accent-rose-soft: #ffe8ec;
+  --accent-peach: #ffc2a0;
+  --accent-peach-foreground: #2b2451;
+  --accent-peach-ink: #96461f;
+  --accent-peach-soft: #fff0e6;
+  --surface-lavender: #e9e5ff;
+  --surface-lavender-foreground: #2b2451;
+  --surface-cream: #fff6ee;
+  --surface-cream-foreground: #2b2451;
+  --chart-1: #2b2451;
+  --chart-2: #d94f6f;
+  --chart-3: #7b62ff;
+  --chart-4: #c96a2e;
 
   /* زبان طراحی: فونت، فرم، خط، عمق، حرکت و تراکم */
   --radius: 0.75rem;
@@ -91,6 +113,23 @@
   --brand-strong: #6547ff;
   --brand-strong-foreground: #ffffff;
 
+  --accent-rose: #f08da0;
+  --accent-rose-foreground: #120f24;
+  --accent-rose-ink: #ffb0be;
+  --accent-rose-soft: #3a1f33;
+  --accent-peach: #eeb08c;
+  --accent-peach-foreground: #120f24;
+  --accent-peach-ink: #ffc9a8;
+  --accent-peach-soft: #36261f;
+  --surface-lavender: #231e42;
+  --surface-lavender-foreground: #f1f0fa;
+  --surface-cream: #221a26;
+  --surface-cream-foreground: #f1f0fa;
+  --chart-1: #d9d4ff;
+  --chart-2: #f08da0;
+  --chart-3: #8b75ff;
+  --chart-4: #eeb08c;
+
   --field: #ffffff0a;
   --depth-control: 0 0 #0000;
   --depth-press: inset 0 1px 2px 0 #00000059;
@@ -128,6 +167,23 @@
     --brand-ink: #b3a5ff;
     --brand-strong: #6547ff;
     --brand-strong-foreground: #ffffff;
+
+    --accent-rose: #f08da0;
+    --accent-rose-foreground: #120f24;
+    --accent-rose-ink: #ffb0be;
+    --accent-rose-soft: #3a1f33;
+    --accent-peach: #eeb08c;
+    --accent-peach-foreground: #120f24;
+    --accent-peach-ink: #ffc9a8;
+    --accent-peach-soft: #36261f;
+    --surface-lavender: #231e42;
+    --surface-lavender-foreground: #f1f0fa;
+    --surface-cream: #221a26;
+    --surface-cream-foreground: #f1f0fa;
+    --chart-1: #d9d4ff;
+    --chart-2: #f08da0;
+    --chart-3: #8b75ff;
+    --chart-4: #eeb08c;
 
     --field: #ffffff0a;
     --depth-control: 0 0 #0000;
@@ -180,6 +236,22 @@
   --color-brand-ink: var(--brand-ink);
   --color-brand-strong: var(--brand-strong);
   --color-brand-strong-foreground: var(--brand-strong-foreground);
+  --color-accent-rose: var(--accent-rose);
+  --color-accent-rose-foreground: var(--accent-rose-foreground);
+  --color-accent-rose-ink: var(--accent-rose-ink);
+  --color-accent-rose-soft: var(--accent-rose-soft);
+  --color-accent-peach: var(--accent-peach);
+  --color-accent-peach-foreground: var(--accent-peach-foreground);
+  --color-accent-peach-ink: var(--accent-peach-ink);
+  --color-accent-peach-soft: var(--accent-peach-soft);
+  --color-surface-lavender: var(--surface-lavender);
+  --color-surface-lavender-foreground: var(--surface-lavender-foreground);
+  --color-surface-cream: var(--surface-cream);
+  --color-surface-cream-foreground: var(--surface-cream-foreground);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);

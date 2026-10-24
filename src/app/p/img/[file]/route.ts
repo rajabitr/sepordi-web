@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { MIME_BY_EXT, type ImageKind } from "@/server/product-images/magic";
 import { imagePath } from "@/server/product-images/store";
 
-const notFound = () => new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" } });
+const notFound = () => new Response("Not found", { status: 404, headers: { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff", "Content-Security-Policy": "default-src 'none'; sandbox", "Referrer-Policy": "no-referrer" } });
 
 /**
  * A product picture, public: Bizin's servers fetch it from an import file and customers may see it. Names are
@@ -27,6 +27,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ file: stri
       "Cache-Control": "public, max-age=31536000, immutable",
       "X-Content-Type-Options": "nosniff",
       "Content-Security-Policy": "default-src 'none'; sandbox",
+      "Referrer-Policy": "no-referrer",
     },
   });
 }

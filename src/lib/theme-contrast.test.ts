@@ -9,7 +9,7 @@ function block(selector: string): Record<string, string> {
   if (start < 0) throw new Error(`missing ${selector}`);
   const body = css.slice(start, css.indexOf("}", start));
   const vars: Record<string, string> = {};
-  for (const m of body.matchAll(/--([a-z-]+):\s*(#[0-9a-f]{6,8})\s*;/gi)) vars[m[1]] = m[2].toLowerCase();
+  for (const m of body.matchAll(/--([a-z0-9-]+):\s*(#[0-9a-f]{6,8})\s*;/gi)) vars[m[1]] = m[2].toLowerCase();
   return vars;
 }
 
@@ -50,6 +50,31 @@ const BODY: [string, string][] = [
   ["brand-ink", "muted"],
   ["brand-ink", "accent"],
   ["brand-strong-foreground", "brand-strong"],
+  ["accent-rose-foreground", "accent-rose"],
+  ["accent-peach-foreground", "accent-peach"],
+  ["accent-rose-ink", "background"],
+  ["accent-rose-ink", "card"],
+  ["accent-rose-ink", "accent-rose-soft"],
+  ["accent-rose-ink", "surface-cream"],
+  ["accent-rose-ink", "surface-lavender"],
+  ["accent-peach-ink", "background"],
+  ["accent-peach-ink", "card"],
+  ["accent-peach-ink", "accent-peach-soft"],
+  ["accent-peach-ink", "surface-cream"],
+  ["accent-peach-ink", "surface-lavender"],
+  ["surface-lavender-foreground", "surface-lavender"],
+  ["surface-cream-foreground", "surface-cream"],
+  ["foreground", "accent-rose-soft"],
+  ["foreground", "accent-peach-soft"],
+  ["muted-foreground", "surface-lavender"],
+  ["muted-foreground", "surface-cream"],
+  ["brand-ink", "surface-lavender"],
+  ["brand-ink", "surface-cream"],
+  ["success", "surface-cream"],
+  ["muted-foreground", "accent-rose-soft"],
+  ["muted-foreground", "accent-peach-soft"],
+  ["surface-cream-foreground", "card"],
+  ["warning", "surface-cream"],
 ];
 
 // Large text, icons, focus rings and field borders: 3:1.
@@ -63,6 +88,12 @@ const UI: [string, string][] = [
   ["input", "background"],
   ["input", "card"],
   ["primary", "background"],
+  ["brand", "surface-lavender"],
+  ["success", "surface-lavender"],
+  ...(["chart-1", "chart-2", "chart-3", "chart-4"] as const).flatMap((c): [string, string][] => [
+    [c, "card"],
+    [c, "background"],
+  ]),
 ];
 
 const light = block(":root");
@@ -73,6 +104,13 @@ describe("sepordi theme contrast", () => {
   it("keeps the logo colours exact", () => {
     expect(light.primary).toBe("#2b2451");
     expect(light.brand).toBe("#7b62ff");
+  });
+
+  it("keeps the palette swatches exact", () => {
+    expect(light["accent-rose"]).toBe("#fe90a3");
+    expect(light["accent-peach"]).toBe("#ffc2a0");
+    expect(light["surface-lavender"]).toBe("#e9e5ff");
+    expect(light["surface-cream"]).toBe("#fff6ee");
   });
 
   it("dark media query mirrors the explicit dark theme", () => {

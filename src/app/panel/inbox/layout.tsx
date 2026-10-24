@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 
-import { requireSeller } from "@/server/auth/session";
+import { requireCapability } from "@/server/auth/session";
 import { getTenantChannels } from "@/server/bizin/client";
 import { ConversationList } from "@/components/panel/inbox/conversation-list";
 import { InboxShell } from "@/components/panel/inbox/inbox-shell";
@@ -24,7 +24,7 @@ export default function InboxLayout({ children }: { children: React.ReactNode })
 }
 
 async function ListLoader() {
-  const { shop, role } = await requireSeller();
+  const { shop, role } = await requireCapability("inbox.view");
   // Only decides which empty state to show: a failed read must not hide the conversations.
   const hasChannel = await getTenantChannels(shop.external_business_id)
     .then((r) => r.channels.some((c) => c.status === "connected"))

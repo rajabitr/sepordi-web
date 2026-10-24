@@ -29,13 +29,13 @@ export function PlanCards({ plans }: { plans: PlanSetting[] | null }) {
           <li
             key={p.code}
             className={cn(
-              "relative flex flex-col rounded-2xl border bg-card p-6 shadow-surface",
-              p.highlight ? "border-brand ring-1 ring-brand" : "border-border",
+              "relative flex flex-col rounded-2xl border p-6 shadow-surface",
+              p.highlight ? "border-brand bg-surface-lavender text-surface-lavender-foreground ring-1 ring-brand" : "border-border bg-card",
             )}
           >
             <div className="flex items-center justify-between gap-2">
               <h3 className="text-lg font-bold leading-tight">{p.name}</h3>
-              {p.highlight && <span className="rounded-full bg-accent px-3 text-xs font-semibold leading-6 text-brand-ink">پیشنهاد ما</span>}
+              {p.highlight && <span className="rounded-full bg-accent-rose px-3 text-xs font-semibold leading-6 text-accent-rose-foreground">پیشنهاد ما</span>}
             </div>
             <p className="mt-4 text-3xl font-bold leading-tight tabular-nums">
               {soon ? <span className="text-muted-foreground">{price}</span> : price}
@@ -111,7 +111,7 @@ function PlanComparison({ plans }: { plans: PlanSetting[] | null }) {
           <tr className="border-b border-border">
             <th scope="col" className="p-4 text-start font-medium text-muted-foreground">امکانات</th>
             {list.map((p) => (
-              <th key={p.code} scope="col" className={cn("p-4 text-center font-bold", p.highlight && "bg-accent")}>{p.name}</th>
+              <th key={p.code} scope="col" className={cn("p-4 text-center font-bold", p.highlight && "bg-surface-lavender")}>{p.name}</th>
             ))}
           </tr>
         </thead>
@@ -120,7 +120,7 @@ function PlanComparison({ plans }: { plans: PlanSetting[] | null }) {
             <tr key={r.feature} className="border-b border-border last:border-0">
               <th scope="row" className="p-4 text-start font-normal">{r.feature}</th>
               {r.values.map((v, i) => (
-                <td key={list[i].code} className={cn("p-4 text-center tabular-nums", list[i].highlight && "bg-accent/60")}>
+                <td key={list[i].code} className={cn("p-4 text-center tabular-nums", list[i].highlight && "bg-surface-lavender/60")}>
                   {v === true ? (
                     <Check strokeWidth={2} aria-label="دارد" className="mx-auto size-4 text-success" />
                   ) : v === false ? (

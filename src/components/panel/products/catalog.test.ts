@@ -11,6 +11,11 @@ import {
   LIMITS,
   parseWholeNumber,
   priceRange,
+  reapplyStock,
+  reconcileStock,
+  resolveStockConflicts,
+  stockChanged,
+  stockConflictLine,
   stockLevel,
   type ProductDraft,
   type ProductView,
@@ -46,7 +51,7 @@ const draft = (over: Partial<ProductDraft> = {}): ProductDraft => ({
   category: "پوشاک",
   sku: "TS-1",
   active: true,
-  variants: [{ key: "a", ext: "v_a", title: "", price: "۱۲٬۵۰۰٬۰۰۰", stock: "", unlimited: true }],
+  variants: [{ key: "a", ext: "v_a", title: "", price: "۱۲٬۵۰۰٬۰۰۰", stock: "", unlimited: true, base: null }],
   ...over,
 });
 
@@ -82,8 +87,8 @@ describe("buildProductPut", () => {
     const r = buildProductPut(
       draft({
         variants: [
-          { key: "a", ext: "v_a", title: "M", price: "100", stock: "۱۴", unlimited: false },
-          { key: "b", ext: "v_b", title: "L", price: "200", stock: "", unlimited: true },
+          { key: "a", ext: "v_a", title: "M", price: "100", stock: "۱۴", unlimited: false, base: null },
+          { key: "b", ext: "v_b", title: "L", price: "200", stock: "", unlimited: true, base: null },
         ],
       }),
     );
@@ -98,8 +103,8 @@ describe("buildProductPut", () => {
       draft({
         title: " ",
         variants: [
-          { key: "a", ext: "v_a", title: "", price: "12.5", stock: "", unlimited: false },
-          { key: "b", ext: "v_b", title: "", price: "", stock: "", unlimited: true },
+          { key: "a", ext: "v_a", title: "", price: "12.5", stock: "", unlimited: false, base: null },
+          { key: "b", ext: "v_b", title: "", price: "", stock: "", unlimited: true, base: null },
         ],
       }),
     );
@@ -113,9 +118,9 @@ describe("buildProductPut", () => {
 
   it("holds the variant count to 1–200 and stock to 100,000,000", () => {
     expect(buildProductPut(draft({ variants: [] })).errors?.variants).toBeTruthy();
-    const many = Array.from({ length: LIMITS.variantsMax + 1 }, (_, i) => ({ key: `k${i}`, ext: `v${i}`, title: `t${i}`, price: "1", stock: "", unlimited: true }));
+    const many = Array.from({ length: LIMITS.variantsMax + 1 }, (_, i) => ({ key: `k${i}`, ext: `v${i}`, title: `t${i}`, price: "1", stock: "", unlimited: true, base: null }));
     expect(buildProductPut(draft({ variants: many })).errors?.variants).toBeTruthy();
-    const r = buildProductPut(draft({ variants: [{ key: "a", ext: "v_a", title: "", price: "1", stock: "100000001", unlimited: false }] }));
+    const r = buildProductPut(draft({ variants: [{ key: "a", ext: "v_a", title: "", price: "1", stock: "100000001", unlimited: false, base: null }] }));
     expect(r.errors?.rows?.a?.stock).toBeTruthy();
   });
 
@@ -125,7 +130,7 @@ describe("buildProductPut", () => {
   });
 
   it("refuses a variant that has no id yet", () => {
-    expect(buildProductPut(draft({ variants: [{ key: "a", ext: null, title: "", price: "1", stock: "", unlimited: true }] })).body).toBeNull();
+    expect(buildProductPut(draft({ variants: [{ key: "a", ext: null, title: "", price: "1", stock: "", unlimited: true, base: null }] })).body).toBeNull();
   });
 });
 
@@ -148,7 +153,7 @@ describe("draftFromProduct", () => {
       ]),
     );
     expect(d.variants).toHaveLength(1);
-    expect(d.variants[0]).toMatchObject({ ext: "a", title: "M", price: "۱۲٬۵۰۰٬۰۰۰", stock: "۳", unlimited: false });
+    expect(d.variants[0]).toMatchObject({ ext: "a", title: "M", price: "۱۲٬۵۰۰٬۰۰۰", stock: "۳", unlimited: false, base: { stock: 3 } });
     expect(panelOnlyVariants).toEqual(["هدیه"]);
   });
 
@@ -203,5 +208,71 @@ describe("Jalali dates", () => {
     expect(jalaliDateTime("2026-10-20T10:05:00Z")).toBe("۲۸ مهر ۱۴۰۵ ساعت ۱۳:۳۵");
     expect(jalaliDate("2026-10-20T22:05:00Z")).toBe("۲۹ مهر ۱۴۰۵");
     expect(jalaliDateTime(null)).toBe("");
+  });
+});
+
+describe("stock against the live level (S2)", () => {
+  const loaded = (stock: string, base: number | null, ext = "v_a", key = "a"): ProductDraft["variants"][number] => ({
+    key,
+    ext,
+    title: key === "a" ? "M" : "L",
+    price: "100",
+    stock,
+    unlimited: base === null && stock === "",
+    base: { stock: base },
+  });
+  const put = (d: ProductDraft) => buildProductPut(d).body!;
+
+  it("keeps a sale made after the form loaded when the seller did not touch stock", () => {
+    const d = draft({ variants: [loaded("۱۰", 10), loaded("۴", 4, "v_b", "b")] });
+    const r = reconcileStock(d, put(d), [
+      { external_id: "v_a", stock: 8 },
+      { external_id: "v_b", stock: 4 },
+    ]);
+    expect(r.conflicts).toBeNull();
+    expect(r.body?.variants.map((v) => v.stock)).toEqual([8, 4]);
+  });
+
+  it("writes a changed level when nothing moved since the load", () => {
+    const d = draft({ variants: [loaded("۱۵", 10)] });
+    const r = reconcileStock(d, put(d), [{ external_id: "v_a", stock: 10 }]);
+    expect(r.body?.variants[0].stock).toBe(15);
+  });
+
+  it("refuses a changed level whose live level moved, with both numbers", () => {
+    const d = draft({ variants: [loaded("۱۵", 10)] });
+    const r = reconcileStock(d, put(d), [{ external_id: "v_a", stock: 8 }]);
+    expect(r.body).toBeNull();
+    expect(r.conflicts).toEqual([{ key: "a", ext: "v_a", title: "M", base: 10, live: 8, mine: 15 }]);
+    expect(stockConflictLine(r.conflicts![0], 0)).toBe("«M»: وقتی فرم را باز کردید ۱۰ بود و الان ۸ است؛ عدد شما ۱۵.");
+  });
+
+  it("treats turning counting on or off as a change and a new row as the seller's own", () => {
+    expect(stockChanged(loaded("", null))).toBe(false);
+    expect(stockChanged({ ...loaded("", null), unlimited: false, stock: "3" })).toBe(true);
+    expect(stockChanged({ ...loaded("۵", 5), unlimited: true, stock: "" })).toBe(true);
+    const fresh = { ...loaded("۷", 0, "v_n", "n"), base: null };
+    const d = draft({ variants: [fresh] });
+    expect(reconcileStock(d, put(d), []).body?.variants[0].stock).toBe(7);
+    expect(reconcileStock(d, put(d), null).body?.variants[0].stock).toBe(7);
+  });
+
+  it("re-applies the seller's change onto the live level, or keeps the typed number", () => {
+    const c = { key: "a", ext: "v_a", title: "M", base: 10, live: 8, mine: 15 };
+    expect(reapplyStock(c)).toBe(13);
+    expect(reapplyStock({ ...c, mine: 2 })).toBe(0);
+    expect(reapplyStock({ ...c, mine: null })).toBeNull();
+    const d = draft({ variants: [loaded("۱۵", 10)] });
+    const re = resolveStockConflicts(d, [c], "reapply");
+    expect(re.variants[0]).toMatchObject({ stock: "۱۳", unlimited: false, base: { stock: 8 } });
+    expect(reconcileStock(re, put(re), [{ external_id: "v_a", stock: 8 }]).body?.variants[0].stock).toBe(13);
+    const mine = resolveStockConflicts(d, [c], "mine");
+    expect(reconcileStock(mine, put(mine), [{ external_id: "v_a", stock: 8 }]).body?.variants[0].stock).toBe(15);
+    expect(reconcileStock(mine, put(mine), [{ external_id: "v_a", stock: 6 }]).conflicts).toHaveLength(1);
+  });
+
+  it("refuses a draft whose baseline is not a whole level", () => {
+    expect(isProductDraft(draft({ variants: [{ ...loaded("1", 1), base: { stock: -1 } }] }))).toBe(false);
+    expect(isProductDraft({ ...draft(), variants: [{ ...loaded("1", 1), base: undefined }] })).toBe(false);
   });
 });

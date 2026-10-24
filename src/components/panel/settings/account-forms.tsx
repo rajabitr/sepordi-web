@@ -1,11 +1,10 @@
 "use client";
 
 import * as React from "react";
-import { LogOut, MonitorSmartphone, Save } from "lucide-react";
+import { Save } from "lucide-react";
 
-import { changePasswordAction, endOtherSessionsAction, saveProfileAction } from "@/app/panel/settings/actions";
+import { changePasswordAction, saveProfileAction } from "@/app/panel/settings/actions";
 import { failureText } from "@/components/panel/overview/action-result";
-import { AlertDialog } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, Input } from "@/components/ui/input";
@@ -153,50 +152,6 @@ export function PasswordForm({ hasPassword, minLength }: { hasPassword: boolean;
           </div>
         </form>
       </CardContent>
-    </Card>
-  );
-}
-
-export function SessionsCard({ others }: { others: number }) {
-  const { toast } = useToast();
-  const [count, setCount] = React.useState(others);
-  const [confirm, setConfirm] = React.useState(false);
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>دستگاه‌ها و خروج</CardTitle>
-        <CardDescription>
-          {count > 0 ? `حساب شما در ${fa(count)} دستگاه یا مرورگر دیگر هم باز است.` : "حساب شما فقط در همین مرورگر باز است."}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="flex flex-wrap gap-3">
-        <Button variant="outline" className="h-11" disabled={count === 0} onClick={() => setConfirm(true)}>
-          <MonitorSmartphone className="size-4" strokeWidth={1.5} />
-          خروج از دستگاه‌های دیگر
-        </Button>
-        <form method="post" action="/logout">
-          <Button type="submit" variant="ghost" className="h-11 text-destructive hover:text-destructive">
-            <LogOut className="size-4" strokeWidth={1.5} />
-            خروج از حساب
-          </Button>
-        </form>
-      </CardContent>
-      <AlertDialog
-        open={confirm}
-        onOpenChange={setConfirm}
-        title="از دستگاه‌های دیگر خارج شوید؟"
-        description="هر جای دیگری که وارد شده‌اید، دوباره باید وارد شود. همین مرورگر وارد می‌ماند."
-        confirmText="بله، خارج شو"
-        destructive
-        onConfirm={async () => {
-          const r = await endOtherSessionsAction();
-          if (r.ok) {
-            setCount(0);
-            toast({ title: "از دستگاه‌های دیگر خارج شدید", variant: "success" });
-          } else toast({ title: "انجام نشد", description: failureText(r), variant: "error" });
-        }}
-      />
     </Card>
   );
 }

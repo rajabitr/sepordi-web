@@ -13,7 +13,7 @@ import { ProductImages } from "@/components/panel/products/product-images";
 import { ProductFormSkeleton } from "@/components/panel/products/skeletons";
 import { Alert } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
-import { requireSeller } from "@/server/auth/session";
+import { requireCapability } from "@/server/auth/session";
 import { getProduct } from "@/server/bizin/client";
 import { isBizinError } from "@/server/bizin/error";
 import { toFarsiError } from "@/server/bizin/errors-fa";
@@ -24,7 +24,7 @@ export const metadata: Metadata = { title: "ویرایش محصول" };
 type Params = Promise<{ ext: string }>;
 
 async function EditProductData({ params }: { params: Params }) {
-  const { shop } = await requireSeller();
+  const { shop } = await requireCapability("products.edit");
   const productExt = (await params).ext;
 
   let product;

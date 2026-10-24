@@ -7,6 +7,7 @@ import { CONDITIONS_MAX, PERSONA_MAX, WINDOW_MAX } from "@/components/panel/assi
 import type { ActionResult } from "@/components/panel/overview/action-result";
 import { actionError } from "@/components/panel/overview/settle";
 import { requireShopOwner } from "@/server/auth/session";
+import { recordActivity } from "@/server/audit";
 import * as bizin from "@/server/bizin/client";
 import { loadKnowledgeDraft, saveKnowledgeDraft } from "@/server/knowledge/draft";
 
@@ -37,6 +38,7 @@ export async function saveAssistantAction(input: AssistantInput): Promise<Action
       business_profile: k.compiled,
     });
     saveKnowledgeDraft(shop.id, k.draft);
+    recordActivity(await requireShopOwner(), "assistant.save");
     revalidatePath("/panel");
     return {
       ok: true,
@@ -72,6 +74,7 @@ export async function saveReturnPolicyAction(input: ReturnPolicyInput): Promise<
   }
   try {
     const p = await bizin.putReturnPolicy(shop.external_business_id, { enabled: Boolean(input.enabled), window_days: days, conditions });
+    recordActivity(await requireShopOwner(), "assistant.save", { type: "return_policy" });
     return { ok: true, data: { enabled: p.enabled, window_days: p.window_days, conditions: p.conditions } };
   } catch (e) {
     return actionError(e);

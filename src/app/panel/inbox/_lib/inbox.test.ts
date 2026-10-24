@@ -1,19 +1,21 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { openDb, setDbForTests } from "@/server/db";
 import * as bizin from "@/server/bizin/client";
 import { resetWorld } from "@/server/bizin/mock";
 import { seedWorld } from "@/server/bizin/mock/fixtures";
 import { getWorld } from "@/server/bizin/mock/state";
 import type { TransportRequest } from "@/server/bizin/transport";
-import type { Conversation, Message } from "@/components/panel/inbox/model";
+import { NOT_ENTITLED, type Conversation, type Message } from "@/components/panel/inbox/model";
 
 const session = vi.hoisted(() => ({ ext: null as string | null }));
 
+vi.mock("@/server/audit", () => ({ recordActivity: vi.fn() }));
 vi.mock("@/server/auth/session", () => {
-  const ctx = () => (session.ext ? { user: { id: "u" }, shop: { external_business_id: session.ext } } : null);
+  const ctx = () => (session.ext ? { user: { id: "u" }, shop: { id: `shop-${session.ext}`, external_business_id: session.ext } } : null);
   return {
     getSeller: async () => ctx(),
-    requireSeller: async () => {
+    requireCapability: async () => {
       const c = ctx();
       if (!c) throw new Error("REDIRECT /login");
       return c;
@@ -25,12 +27,15 @@ const { GET: listRoute } = await import("../data/conversations/route");
 const { GET: messagesRoute } = await import("../data/conversations/[id]/messages/route");
 const { POST: uploadRoute } = await import("../data/media/route");
 const { GET: mediaRoute } = await import("../../media/[id]/route");
-const { claimAction, releaseAction, replyAction } = await import("../actions");
+const { claimAction, markSeenAction, releaseAction, replyAction } = await import("../actions");
+const { faError } = await import("./respond");
+const { loadSeen } = await import("./seen");
 
 const env = { ...process.env };
 const params = (id: string) => ({ params: Promise.resolve({ id }) });
 
 beforeEach(() => {
+  setDbForTests(openDb(":memory:"));
   resetWorld();
   process.env.BIZIN_MODE = "mock";
   session.ext = "demo-nila";
@@ -38,6 +43,7 @@ beforeEach(() => {
 afterEach(() => {
   process.env = { ...env };
   bizin.setTransportForTests(undefined);
+  setDbForTests(undefined);
 });
 
 async function listed(url = "http://x/panel/inbox/data/conversations"): Promise<Conversation[]> {
@@ -67,6 +73,45 @@ describe("conversation list route", () => {
     const seen = capture(() => Response.json({ conversations: [], next_cursor: null }));
     await listRoute(new Request("http://x/panel/inbox/data/conversations?ext=demo-rasta&state=handoff&state=bogus&queue=sales&channel=sms&q=x"));
     expect(seen[0].path).toBe("/tenants/demo-nila/conversations?limit=30&state=handoff&queue=sales");
+  });
+
+  it("sends the sheet filters as the Partner API names them, the until day ending at the next Tehran midnight", async () => {
+    const seen = capture(() => Response.json({ conversations: [], next_cursor: null }));
+    await listRoute(
+      new Request(
+        "http://x/panel/inbox/data/conversations?priority=urgent&reason_class=PAYMENT_VERIFICATION&status=snoozed&has_order=false&until=2026-10-24&priority_x=1",
+      ),
+    );
+    const q = new URL(`http://b${seen[0].path}`).searchParams;
+    expect(q.getAll("priority")).toEqual(["urgent"]);
+    expect(q.getAll("reason_class")).toEqual(["PAYMENT_VERIFICATION"]);
+    expect(q.getAll("status")).toEqual(["snoozed"]);
+    expect(q.get("has_order")).toBe("false");
+    expect(q.get("until")).toBe("2026-10-24T20:30:00.000Z");
+    expect([...q.keys()].sort()).toEqual(["has_order", "limit", "priority", "reason_class", "status", "until"]);
+  });
+
+  it("drops a bad filter value instead of sending it", async () => {
+    const seen = capture(() => Response.json({ conversations: [], next_cursor: null }));
+    await listRoute(new Request("http://x/panel/inbox/data/conversations?priority=meh&reason_class=NONE&status=gone&has_order=yes&until=2026-02-30"));
+    expect(seen[0].path).toBe("/tenants/demo-nila/conversations?limit=30");
+  });
+
+  it("answers feature_not_entitled as a plan state, never a generic failure", async () => {
+    capture(() => Response.json({ code: "feature_not_entitled", message: "x", params: { feature: "inbox.api" } }, { status: 403 }));
+    const res = await listRoute(new Request("http://x/panel/inbox/data/conversations"));
+    expect(res.status).toBe(403);
+    expect((await res.json()).error).toEqual(NOT_ENTITLED);
+    const thread = await bizin.getConversation("demo-nila", "c7e2a9f4-1b3d-4e5f-8a6b-9c0d1e2f3a4b").catch((e: unknown) => faError(e));
+    expect(thread).toEqual(NOT_ENTITLED);
+  });
+
+  it("returns the seller's own seen marks for the page, per user and shop", async () => {
+    const [c] = await listed();
+    expect((await markSeenAction(c.id, c.last_message_at)).ok).toBe(true);
+    const body = await (await listRoute(new Request("http://x/panel/inbox/data/conversations"))).json();
+    expect(body.data.seen).toEqual({ [c.id]: new Date(c.last_message_at).toISOString() });
+    expect(loadSeen("u", "shop-demo-rasta")).toEqual({});
   });
 
   it("filters by state in the mock world", async () => {
@@ -128,6 +173,11 @@ describe("media proxy", () => {
     const res = await mediaRoute(new Request("http://x"), params("0b9e8d7c-6a5f-4e3d-8c2b-1a0f9e8d7c6b"));
     expect(res.headers.get("content-type")).toBe("application/octet-stream");
     expect(res.headers.get("content-disposition")).toMatch(/^attachment;/);
+  });
+
+  it("passes a plan refusal through as 403, not as a broken upstream", async () => {
+    capture(() => Response.json({ code: "feature_not_entitled", message: "x" }, { status: 403 }));
+    expect((await mediaRoute(new Request("http://x"), params("0b9e8d7c-6a5f-4e3d-8c2b-1a0f9e8d7c6b"))).status).toBe(403);
   });
 
   it("is 401 without a seller and 404 for another shop's file", async () => {
@@ -197,6 +247,16 @@ describe("inbox actions", () => {
     const r = await releaseAction(c.id, KEY);
     expect(r.ok).toBe(false);
     expect(!r.ok && r.error.code).toBe("customer_opted_out");
+  });
+
+  it("mark-seen refuses a bad id or time and never moves a mark back", async () => {
+    const id = "c7e2a9f4-1b3d-4e5f-8a6b-9c0d1e2f3a4b";
+    expect((await markSeenAction("nope", new Date().toISOString())).ok).toBe(false);
+    expect((await markSeenAction(id, "yesterday")).ok).toBe(false);
+    const later = new Date(Date.now() - 60_000).toISOString();
+    await markSeenAction(id, later);
+    await markSeenAction(id, new Date(Date.now() - 3_600_000).toISOString());
+    expect(loadSeen("u", "shop-demo-nila")[id]).toBe(later);
   });
 
   it("claim takes the thread", async () => {

@@ -41,17 +41,21 @@ interface PendingSignup {
   uncertainEmails: string[];
 }
 
-const pendingKey = (userId: string) => `signup:pending:${userId}`;
+/** A second (third, …) shop of a signed-in seller keeps its own pending entry, apart from the first signup's. */
+const pendingKey = (userId: string, another = false) => `signup:pending:${userId}${another ? ":another" : ""}`;
 
-export function readPending(userId: string): PendingSignup | undefined {
-  const r = getDb().prepare("SELECT value FROM settings WHERE key = ?").get(pendingKey(userId)) as { value: string } | undefined;
+export const MAX_SHOPS_PER_USER = 5;
+export const SHOP_LIMIT_FA = `هر حساب حداکثر ${MAX_SHOPS_PER_USER.toLocaleString("fa-IR")} فروشگاه می‌تواند بسازد.`;
+
+export function readPending(userId: string, another = false): PendingSignup | undefined {
+  const r = getDb().prepare("SELECT value FROM settings WHERE key = ?").get(pendingKey(userId, another)) as { value: string } | undefined;
   return r ? (JSON.parse(r.value) as PendingSignup) : undefined;
 }
 
-function writePending(userId: string, p: PendingSignup): void {
+function writePending(userId: string, p: PendingSignup, another = false): void {
   getDb()
     .prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value")
-    .run(pendingKey(userId), JSON.stringify(p));
+    .run(pendingKey(userId, another), JSON.stringify(p));
 }
 
 function emailTakenByOther(email: string, userId: string): boolean {
@@ -59,21 +63,36 @@ function emailTakenByOther(email: string, userId: string): boolean {
 }
 
 /** The ext for this user's business: an existing shop row's, the pending one, or a fresh `sp_<uuid>`. */
-function businessIdFor(userId: string): string {
+function businessIdFor(userId: string, another: boolean): string {
+  if (another) return readPending(userId, true)?.ext ?? `sp_${randomUUID()}`;
   return shops.byUserId(userId)?.external_business_id ?? readPending(userId)?.ext ?? `sp_${randomUUID()}`;
 }
 
-/** Creates the seller's Bizin business and the local shop row. Safe to call again after any failure. */
-export async function provisionShop(userId: string, fields: BusinessFields): Promise<ProvisionResult> {
+function shopsCreatedBy(userId: string): number {
+  const r = getDb().prepare("SELECT COUNT(*) AS n FROM shops WHERE user_id = ? AND bizin_tenant_id IS NOT NULL").get(userId) as { n: number };
+  return Number(r.n);
+}
+
+/**
+ * Creates the seller's Bizin business and the local shop row. Safe to call again after any failure. `another`: a
+ * member of a shop adds one more business under a fresh ext, with themselves as its owner.
+ */
+export async function provisionShop(userId: string, fields: BusinessFields, opts: { another?: boolean } = {}): Promise<ProvisionResult> {
+  const another = opts.another === true;
   const user = users.byId(userId);
   if (!user) return { ok: false, error: { message: "حساب شما پیدا نشد. دوباره وارد شوید.", retryable: false } };
 
-  const joined = members.shopFor(userId);
-  if (joined?.shop.bizin_tenant_id) return { ok: true, shop: joined.shop, created: false };
-  const existing = shops.byUserId(userId);
-  if (existing?.bizin_tenant_id) {
-    // The creator was removed from their own shop's team; a second business would break one-shop-per-user.
-    return { ok: false, error: { message: REMOVED_FROM_SHOP_FA, retryable: false } };
+  if (another) {
+    if (!members.shopFor(userId)) return { ok: false, error: { message: "اول فروشگاه اولتان را بسازید.", retryable: false } };
+    if (shopsCreatedBy(userId) >= MAX_SHOPS_PER_USER) return { ok: false, error: { message: SHOP_LIMIT_FA, retryable: false } };
+  } else {
+    const joined = members.shopFor(userId);
+    if (joined?.shop.bizin_tenant_id) return { ok: true, shop: joined.shop, created: false };
+    const existing = shops.byUserId(userId);
+    if (existing?.bizin_tenant_id) {
+      // The creator was removed from their own shop's team; signup would only find that same business again.
+      return { ok: false, error: { message: REMOVED_FROM_SHOP_FA, retryable: false } };
+    }
   }
 
   const fieldErrors = checkBusiness(fields);
@@ -102,7 +121,7 @@ export async function provisionShop(userId: string, fields: BusinessFields): Pro
   if (instagram) metadata.instagram = instagram;
   if (fields.category) metadata.category = fields.category;
 
-  const ext = businessIdFor(userId);
+  const ext = businessIdFor(userId, another);
   const body = {
     external_business_id: ext,
     name: shopName,
@@ -113,14 +132,14 @@ export async function provisionShop(userId: string, fields: BusinessFields): Pro
     owner: { external_user_id: user.id, email, display_name: ownerName, locale: "fa" as const, phone: mobileToE164(user.phone) },
   };
   const fingerprint = createHash("sha256").update(JSON.stringify(body)).digest("hex");
-  const prev = readPending(userId);
+  const prev = readPending(userId, another);
   const pending: PendingSignup = {
     ext,
     idempotencyKey: prev && prev.ext === ext && prev.fingerprint === fingerprint ? prev.idempotencyKey : randomUUID(),
     fingerprint,
     uncertainEmails: prev?.uncertainEmails ?? [],
   };
-  writePending(userId, pending);
+  writePending(userId, pending, another);
 
   let tenantId: string;
   let created: boolean;
@@ -129,11 +148,11 @@ export async function provisionShop(userId: string, fields: BusinessFields): Pro
     tenantId = res.tenant.id;
     created = res.created !== false;
   } catch (e) {
-    return { ok: false, ...describeFailure(e, userId, pending, email) };
+    return { ok: false, ...describeFailure(e, userId, pending, email, another) };
   }
 
   const shop = tx(getDb(), () => {
-    const row = shops.byUserId(userId);
+    const row = another ? shops.byExternalId(ext) : shops.byUserId(userId);
     let out: ShopRow;
     if (row) {
       shops.setTenantId(row.id, tenantId);
@@ -142,18 +161,26 @@ export async function provisionShop(userId: string, fields: BusinessFields): Pro
       out = shops.create({ userId, externalBusinessId: ext, name: shopName, bizinTenantId: tenantId });
     }
     // The email check above ran before the await; a seller who took the address since keeps it.
-    getDb()
-      .prepare(
-        "UPDATE users SET display_name = ?, email = CASE WHEN EXISTS (SELECT 1 FROM users WHERE email = ? AND id <> ?) THEN email ELSE ? END WHERE id = ?",
-      )
-      .run(ownerName, email, userId, email, userId);
-    getDb().prepare("DELETE FROM settings WHERE key = ?").run(pendingKey(userId));
+    if (!another) {
+      getDb()
+        .prepare(
+          "UPDATE users SET display_name = ?, email = CASE WHEN EXISTS (SELECT 1 FROM users WHERE email = ? AND id <> ?) THEN email ELSE ? END WHERE id = ?",
+        )
+        .run(ownerName, email, userId, email, userId);
+    }
+    getDb().prepare("DELETE FROM settings WHERE key = ?").run(pendingKey(userId, another));
     return out;
   });
   return { ok: true, shop, created };
 }
 
-function describeFailure(e: unknown, userId: string, pending: PendingSignup, email: string): { error: SignupError; fieldErrors?: BusinessErrors } {
+function describeFailure(
+  e: unknown,
+  userId: string,
+  pending: PendingSignup,
+  email: string,
+  another: boolean,
+): { error: SignupError; fieldErrors?: BusinessErrors } {
   if (!isBizinError(e)) {
     console.error("[sepordi signup] createTenant failed", e instanceof Error ? e.message : e);
     return { error: { message: toFarsiError(e).message, retryable: true } };
@@ -162,7 +189,7 @@ function describeFailure(e: unknown, userId: string, pending: PendingSignup, ema
   const requestId = err.requestId;
   const uncertain = err.status === 0 || err.status >= 500 || err.code === "idempotency_request_in_progress";
   if (uncertain && !pending.uncertainEmails.includes(email)) {
-    writePending(userId, { ...pending, uncertainEmails: [...pending.uncertainEmails, email] });
+    writePending(userId, { ...pending, uncertainEmails: [...pending.uncertainEmails, email] }, another);
   }
 
   switch (err.code) {

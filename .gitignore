@@ -21,7 +21,7 @@ next-env.d.ts
 /coverage
 
 # local data (SQLite)
-data/
+/data/
 
 # tooling
 graphify-out/
@@ -38,3 +38,5 @@ yarn-error.log*
 
 # owner drop folder (ASCII copies live in brand/source/)
 /لوگوی سپردی/
+/pallete/
+/.deploy-wt/

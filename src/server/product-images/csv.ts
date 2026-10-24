@@ -33,6 +33,19 @@ export function displayPrice(price: number, exponent: number): string {
   return `${Math.trunc(price / unit)}.${String(price % unit).padStart(exponent, "0")}`;
 }
 
+/**
+ * True when any active variant's level differs between the product the file was built from and a later read. The
+ * file sets stock like a PUT does, so committing it after a sale would undo that sale.
+ */
+export function stockMoved(sent: Schemas["Product"], now: Schemas["Product"]): boolean {
+  const level = (p: Schemas["Product"]) => new Map(p.variants.filter((v) => v.active).map((v) => [v.external_id, v.stock]));
+  const a = level(sent);
+  const b = level(now);
+  if (a.size !== b.size) return true;
+  for (const [ext, stock] of a) if (!b.has(ext) || b.get(ext) !== stock) return true;
+  return false;
+}
+
 export function buildImageImportCsv(
   product: Schemas["Product"],
   imageUrls: readonly string[],

@@ -3,7 +3,9 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { ArrowRight, ImageOff, MessagesSquare, SearchX } from "lucide-react";
 
+import { isNotEntitled } from "@/components/panel/orders/entitlement";
 import { LoadError } from "@/components/panel/orders/load-error";
+import { NotEntitled } from "@/components/panel/orders/not-entitled";
 import { UUID_RE, channelLabel } from "@/components/panel/orders/model";
 import { OrderDetailSkeleton } from "@/components/panel/orders/skeletons";
 import { CaseStateBadge } from "@/components/panel/returns/badges";
@@ -23,7 +25,7 @@ import { Timeline } from "@/components/ui/timeline";
 import { formatDateTime } from "@/lib/date";
 import { formatToman } from "@/lib/money";
 import { fa } from "@/lib/utils";
-import { requireSeller } from "@/server/auth/session";
+import { requireCapability } from "@/server/auth/session";
 import { getCase } from "@/server/bizin/client";
 import { isBizinError } from "@/server/bizin/error";
 import { toFarsiError } from "@/server/bizin/errors-fa";
@@ -64,7 +66,7 @@ function CaseMissing() {
 
 async function CaseSection({ params }: { params: Params }) {
   const { id } = await params;
-  const { shop } = await requireSeller();
+  const { shop } = await requireCapability("returns.view");
   if (!UUID_RE.test(id)) return <CaseMissing />;
 
   let c: Case;
@@ -72,6 +74,7 @@ async function CaseSection({ params }: { params: Params }) {
     c = await getCase(shop.external_business_id, id);
   } catch (e) {
     if (isBizinError(e) && e.status === 404) return <CaseMissing />;
+    if (isNotEntitled(e)) return <NotEntitled />;
     const f = toFarsiError(e);
     return <LoadError title="درخواست بارگذاری نشد" message={f.message} requestId={f.requestId} retryHref={`/panel/returns/${id}`} />;
   }

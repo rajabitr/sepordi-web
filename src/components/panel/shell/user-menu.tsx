@@ -2,14 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
-import { ChevronDown, LogOut, Settings, Wallet } from "lucide-react";
+import { ChevronDown, LogOut, Plus, Settings, Wallet } from "lucide-react";
 
 import { Avatar } from "@/components/ui/avatar";
 import { DropdownMenu } from "@/components/ui/dropdown-menu";
 import { fa } from "@/lib/utils";
 import { logoutAction } from "@/server/auth/actions";
 
-export function UserMenu({ name, phone, canBuyCredit }: { name: string; phone: string; canBuyCredit: boolean }) {
+export function UserMenu({ name, phone, canViewCredit }: { name: string; phone: string; canViewCredit: boolean }) {
   const [pending, start] = useTransition();
   const router = useRouter();
   return (
@@ -25,7 +25,8 @@ export function UserMenu({ name, phone, canBuyCredit }: { name: string; phone: s
       items={[
         { type: "label", label: <bdi dir="ltr">{fa(phone)}</bdi> },
         { label: "تنظیمات", icon: Settings, onSelect: () => router.push("/panel/settings") },
-        ...(canBuyCredit ? [{ label: "اعتبار", icon: Wallet, onSelect: () => router.push("/panel/credit") }] : []),
+        ...(canViewCredit ? [{ label: "اعتبار", icon: Wallet, onSelect: () => router.push("/panel/credit") }] : []),
+        { label: "فروشگاه جدید", icon: Plus, onSelect: () => router.push("/register?step=shop&another=1") },
         { type: "separator" },
         { label: pending ? "در حال خروج…" : "خروج", icon: LogOut, danger: true, disabled: pending, onSelect: () => start(() => logoutAction()) },
       ]}

@@ -5,11 +5,11 @@ import { ArrowLeft, CheckCircle2, Circle, CircleAlert, MessagesSquare, PartyPopp
 
 import { Alert } from "@/components/ui/alert";
 import { buttonVariants } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn, fa } from "@/lib/utils";
 import { requireSeller } from "@/server/auth/session";
 import * as bizin from "@/server/bizin/client";
+import { can } from "@/server/team/roles";
 
 import { LoadError } from "./parts";
 import { setupSteps } from "./setup-steps";
@@ -102,7 +102,9 @@ export async function SetupChecklist() {
             {fa(done)} از {fa(steps.length)} قدم انجام شده
           </span>
         </div>
-        <Progress value={done} max={steps.length} />
+        <div role="progressbar" aria-label="پیشرفت راه‌اندازی" aria-valuenow={done} aria-valuemin={0} aria-valuemax={steps.length} className="h-2 w-full overflow-hidden rounded-full bg-surface-lavender">
+          <div className="h-full rounded-full bg-brand" style={{ width: `${(done / steps.length) * 100}%` }} />
+        </div>
       </div>
       <ol className="mt-4 flex flex-col divide-y divide-border">
         {steps.map((s) => (
@@ -162,19 +164,24 @@ export function SetupChecklistSkeleton() {
 
 const PEEK = 20;
 
+/** Each card links to a page; a role that cannot open the page does not get the card, nor its Bizin read. */
 export async function NeedsYou() {
-  const { shop } = await requireSeller();
+  const { shop, role } = await requireSeller();
   const ext = shop.external_business_id;
+  const inbox = can(role, "inbox.view");
+  const orders = can(role, "orders.view");
+  if (!inbox && !orders) return null;
   const [handoffs, receipts] = await Promise.all([
-    settle(bizin.listConversations(ext, { state: ["handoff"], limit: PEEK })),
-    settle(bizin.listOrders(ext, { payment_status: "pending_verification", limit: PEEK })),
+    inbox ? settle(bizin.listConversations(ext, { state: ["handoff"], limit: PEEK })) : null,
+    orders ? settle(bizin.listOrders(ext, { payment_status: "pending_verification", limit: PEEK })) : null,
   ]);
   const count = (n: number, more: boolean) => (more ? `${fa(n)}+` : fa(n));
 
   const cards = [
-    {
+    handoffs && {
       key: "handoff",
       icon: MessagesSquare,
+      tint: { card: "border-accent-rose bg-accent-rose-soft hover:bg-accent-rose-soft/60", chip: "bg-card text-accent-rose-ink" },
       label: "نیازمند شما",
       hint: "گفت‌وگوهایی که منتظر شما هستند؛ تا آن‌ها را به دستیار برنگردانید، دستیار جوابی نمی‌دهد",
       href: "/panel/inbox?state=handoff",
@@ -182,9 +189,10 @@ export async function NeedsYou() {
       zero: handoffs.ok && handoffs.data.conversations.length === 0,
       error: handoffs.ok ? undefined : handoffs,
     },
-    {
+    receipts && {
       key: "receipts",
       icon: Receipt,
+      tint: { card: "border-accent-peach bg-accent-peach-soft hover:bg-accent-peach-soft/60", chip: "bg-card text-accent-peach-ink" },
       label: "رسید در انتظار",
       hint: "رسیدهای کارت‌به‌کارت که باید تأیید یا رد کنید",
       href: "/panel/orders?payment=pending_verification",
@@ -192,10 +200,10 @@ export async function NeedsYou() {
       zero: receipts.ok && receipts.data.orders.length === 0,
       error: receipts.ok ? undefined : receipts,
     },
-  ];
+  ].filter((c) => c !== null);
 
   return (
-    <div className="grid gap-3 sm:grid-cols-2">
+    <div className={cn("grid gap-3", cards.length > 1 && "sm:grid-cols-2")}>
       {cards.map((c) =>
         c.error ? (
           <LoadError key={c.key} title={`«${c.label}» بارگذاری نشد`} message={c.error.message} requestId={c.error.requestId} />
@@ -204,11 +212,11 @@ export async function NeedsYou() {
             key={c.key}
             href={c.href}
             className={cn(
-              "group flex min-h-20 items-center gap-4 rounded-surface border bg-card p-4 transition-colors duration-200 hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-              c.zero ? "border-border" : "border-warning/40",
+              "group flex min-h-20 items-center gap-4 rounded-surface border p-4 transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              c.zero ? "border-border bg-card hover:bg-secondary" : c.tint.card,
             )}
           >
-            <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-full", c.zero ? "bg-secondary text-muted-foreground" : "bg-warning/10 text-warning")}>
+            <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-full", c.zero ? "bg-surface-lavender text-muted-foreground" : c.tint.chip)}>
               <c.icon className="size-5" strokeWidth={1.5} />
             </span>
             <span className="min-w-0 flex-1">

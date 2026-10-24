@@ -3,7 +3,9 @@ import Link from "next/link";
 import { Suspense } from "react";
 import { SearchX, Undo2 } from "lucide-react";
 
+import { isNotEntitled } from "@/components/panel/orders/entitlement";
 import { LoadError } from "@/components/panel/orders/load-error";
+import { NotEntitled } from "@/components/panel/orders/not-entitled";
 import { OrdersListSkeleton } from "@/components/panel/orders/skeletons";
 import { CursorPager } from "@/components/panel/orders/orders-table";
 import { CasesFilters } from "@/components/panel/returns/cases-filters";
@@ -11,7 +13,7 @@ import { CasesTable } from "@/components/panel/returns/cases-table";
 import { casesHref, nextCasesHref, parseCaseFilters, prevCasesHref } from "@/components/panel/returns/model";
 import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
-import { requireSeller } from "@/server/auth/session";
+import { requireCapability } from "@/server/auth/session";
 import { listCases } from "@/server/bizin/client";
 import { isBizinError } from "@/server/bizin/error";
 import { toFarsiError } from "@/server/bizin/errors-fa";
@@ -40,7 +42,7 @@ export default function ReturnsPage({ searchParams }: { searchParams: SearchPara
 
 async function CasesSection({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const { shop, role } = await requireSeller();
+  const { shop, role } = await requireCapability("returns.view");
   const filters = parseCaseFilters(sp);
   const filtered = Boolean(filters.state || filters.kind);
 
@@ -63,6 +65,9 @@ async function CasesSection({ searchParams }: { searchParams: SearchParams }) {
           description="وقتی فعال شود، درخواست‌های مرجوعی، تعویض و شکایت مشتری‌ها همین‌جا برای تصمیم شما می‌آیند. برای فعال‌سازی با پشتیبانی تماس بگیرید."
         />
       );
+    }
+    if (isNotEntitled(e)) {
+      return <NotEntitled description="وقتی فعال شود، درخواست‌های مرجوعی، تعویض و شکایت مشتری‌ها همین‌جا برای تصمیم شما می‌آیند." />;
     }
     const f = toFarsiError(e);
     const cursorBroken = f.field === "cursor";

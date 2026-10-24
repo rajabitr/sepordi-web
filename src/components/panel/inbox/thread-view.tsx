@@ -14,7 +14,7 @@ import { Spinner } from "@/components/ui/spinner";
 import { useToast } from "@/components/ui/toast";
 import { formatDate, formatDateTime, relativeTime } from "@/lib/date";
 import { fa } from "@/lib/utils";
-import { claimAction, moveQueueAction, releaseAction, replyAction, type ReplyInput } from "@/app/panel/inbox/actions";
+import { claimAction, markSeenAction, moveQueueAction, releaseAction, replyAction, type ReplyInput } from "@/app/panel/inbox/actions";
 
 import { Composer, type Draft } from "./composer";
 import { MessageBubble } from "./message-bubble";
@@ -25,6 +25,7 @@ import {
   filtersFromSearch,
   filtersToSearch,
   mergeMessages,
+  notEntitled,
   QUEUE_LABEL,
   QUEUES,
   type Conversation,
@@ -33,7 +34,8 @@ import {
   type Message,
 } from "./model";
 import { explainHandoff } from "./handoff-reason";
-import { ChannelIcon, InlineError, PriorityBadge, RequestId, StateBadge } from "./parts";
+import { ChannelIcon, InlineError, NotEntitledState, PriorityBadge, RequestId, StateBadge } from "./parts";
+import { announceSeen } from "./unread";
 import { fetchResult, outcomeOf, usePoll } from "./use-poll";
 
 const THREAD_POLL_MS = 5_000;
@@ -72,6 +74,7 @@ export function ThreadView({ initialConversation, initialPage }: { initialConver
   const [now, setNow] = React.useState<number | null>(null);
   const [announcement, setAnnouncement] = React.useState("");
   const [unseen, setUnseen] = React.useState(0);
+  const [planOff, setPlanOff] = React.useState(false);
   const composerId = React.useId();
 
   const scroller = React.useRef<HTMLDivElement>(null);
@@ -114,11 +117,19 @@ export function ThreadView({ initialConversation, initialPage }: { initialConver
         setAnnouncement(fromCustomer === 1 ? `پیام تازه از ${name}` : `${fa(fromCustomer)} پیام تازه از ${name}`);
         if (!nearBottom.current) setUnseen((n) => n + fresh.length);
       }
+    } else if (notEntitled(r.error)) {
+      setPlanOff(true);
     }
     return outcomeOf(r);
   }, [after, id, name]);
 
-  usePoll(tick, THREAD_POLL_MS);
+  usePoll(tick, THREAD_POLL_MS, { enabled: !planOff });
+
+  const lastAt = conv.last_message_at;
+  React.useEffect(() => {
+    announceSeen(id, lastAt);
+    void markSeenAction(id, lastAt).catch(() => null);
+  }, [id, lastAt]);
 
   React.useEffect(() => {
     // The first clock reading happens after hydration so server and client render the same text.
@@ -260,6 +271,8 @@ export function ThreadView({ initialConversation, initialPage }: { initialConver
 
   const block = now === null ? null : composerBlock(conv, now);
   const groups = groupByDay(messages);
+
+  if (planOff) return <NotEntitledState className="m-4" />;
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">

@@ -1,10 +1,12 @@
 import "server-only";
 
-import { Store } from "lucide-react";
-
 import { requireSeller } from "@/server/auth/session";
+import { members } from "@/server/db/repo";
+import { hiddenSectionsFor } from "@/server/entitlements/sections";
+import { can } from "@/server/team/roles";
 
 import { PanelBottomNavLive, PanelSidebarNavLive } from "./panel-nav";
+import { ShopSwitcher } from "./shop-switcher";
 import { UserMenu } from "./user-menu";
 
 /** Blocks the panel content until a seller with a shop is signed in (redirects otherwise). */
@@ -13,27 +15,25 @@ export async function SellerGate({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-/** Shop name and account menu; reads the session, so it renders inside a Suspense boundary. */
+/** Shop name (a switcher when the user has several) and account menu; renders inside a Suspense boundary. */
 export async function TopbarSession() {
   const { user, shop, role } = await requireSeller();
+  const shops = members.shopsFor(user.id).map((m) => ({ id: m.shop.id, name: m.shop.name }));
   return (
     <>
-      <div className="flex min-w-0 items-center gap-2">
-        <Store className="size-5 shrink-0 text-muted-foreground" strokeWidth={1.5} />
-        <span className="truncate font-semibold">{shop.name}</span>
-      </div>
-      <UserMenu name={user.display_name} phone={user.phone} canBuyCredit={role === "owner"} />
+      <ShopSwitcher current={{ id: shop.id, name: shop.name }} shops={shops} />
+      <UserMenu name={user.display_name} phone={user.phone} canViewCredit={can(role, "credit.view")} />
     </>
   );
 }
 
-/** The menu for the member's role: agents never see owner-only sections. */
+/** The menu for the member's role, without the sections the shop's plan leaves out. */
 export async function RoleSidebarNav() {
-  const { role } = await requireSeller();
-  return <PanelSidebarNavLive role={role} />;
+  const { role, shop } = await requireSeller();
+  return <PanelSidebarNavLive role={role} hidden={await hiddenSectionsFor(shop.external_business_id)} />;
 }
 
 export async function RoleBottomNav() {
-  const { role } = await requireSeller();
-  return <PanelBottomNavLive role={role} />;
+  const { role, shop } = await requireSeller();
+  return <PanelBottomNavLive role={role} hidden={await hiddenSectionsFor(shop.external_business_id)} />;
 }

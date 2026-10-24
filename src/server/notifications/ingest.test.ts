@@ -5,11 +5,13 @@ import { openDb, setDbForTests } from "@/server/db";
 import { shops, users, webhookEvents } from "@/server/db/repo";
 
 import { describeEvent, markAllNotificationsRead, markNotificationRead, notificationsForExt } from "./events";
+import { familiesFor, getNotifyPrefs, setNotifyPrefs, visibleTypes } from "./prefs";
 import { ingestWebhook, MAX_WEBHOOK_BYTES } from "./ingest";
 
 const SECRET = "whsec_current";
 const OLD = "whsec_previous";
 const NOW = 1_760_349_731;
+const BOOKING = "0d6f3c2e-5b8a-4c1e-9f7d-2a4b6c8e0f12";
 
 function sign(body: string, secret = SECRET, t = NOW) {
   return `t=${t},v1=${createHmac("sha256", secret).update(`${t}.`).update(body).digest("hex")}`;
@@ -109,7 +111,7 @@ describe("notifications", () => {
     expect(`${loggedOut?.title} ${loggedOut?.description}`).not.toContain("مسدود");
     expect(describeEvent("case.opened", p({ code: "R-3" }))?.href).toBe("/panel/returns");
     expect(describeEvent("import.completed", p({ status: "done" }))?.href).toBe("/panel/products");
-    expect(describeEvent("message.received", p({}))).toBeNull();
+    expect(describeEvent("ping", p({}))).toBeNull();
     // An id that is not an id never becomes part of a link.
     expect(describeEvent("order.created", p({ order_id: "../../admin" }))?.href).toBe("/panel/orders");
   });
@@ -119,5 +121,125 @@ describe("notifications", () => {
     shops.create({ userId: u.id, externalBusinessId: "biz-9", name: "x" });
     deliver(envelope("evt_z", "credit.exhausted", "biz-9", { state: "exhausted" }));
     expect(notificationsForExt("biz-9").unread).toBe(1);
+  });
+});
+
+describe("the five added webhook types", () => {
+  const p = (data: Record<string, unknown>) => JSON.stringify({ data });
+  const CONV = "0b8c8f6e-0000-4000-8000-0000000000c1";
+  const ORDER = "0b8c8f6e-0000-4000-8000-0000000000d1";
+  const CASE = "0b8c8f6e-0000-4000-8000-0000000000e1";
+
+  it("renders each in Farsi with its page", () => {
+    expect(describeEvent("handoff.released", p({ conversation_id: CONV, channel_kind: "telegram", from: "human" }))).toMatchObject({
+      kind: "handoff",
+      title: "گفت‌وگو به دستیار برگشت",
+      description: "دستیار دوباره به مشتری در تلگرام جواب می‌دهد.",
+      href: `/panel/inbox/${CONV}`,
+    });
+    expect(describeEvent("order.status_changed", p({ order_id: ORDER, code: "1043", from: "paid", to: "shipped" }))).toMatchObject({
+      kind: "order",
+      title: "سفارش 1043 ارسال شد",
+      href: `/panel/orders/${ORDER}`,
+    });
+    expect(describeEvent("order.status_changed", p({ code: "1043", to: "teleported" }))?.title).toBe("وضعیت سفارش 1043 تغییر کرد");
+    expect(describeEvent("case.updated", p({ case_id: CASE, code: "R-3", action: "photo_added", actor: "customer" }))).toMatchObject({
+      kind: "case",
+      title: "درخواست R-3: مشتری عکس تازه فرستاد",
+      href: `/panel/returns/${CASE}`,
+    });
+    expect(describeEvent("channel.connected", p({ channel_kind: "instagram", status: "connected" }))).toMatchObject({
+      kind: "channel",
+      title: "اینستاگرام وصل شد",
+      href: "/panel/channels",
+    });
+    expect(describeEvent("message.received", p({ conversation_id: CONV, kind: "image" }), 3)).toMatchObject({
+      kind: "message",
+      title: "۳ پیام تازه در گفت‌وگوی سپرده‌شده به شما",
+      href: `/panel/inbox/${CONV}`,
+    });
+  });
+
+  it("shows message.received only for a handed-off conversation, one item per conversation", () => {
+    const other = "0b8c8f6e-0000-4000-8000-0000000000c2";
+    // Before the handoff and in a conversation the assistant still holds: not shown.
+    webhookEvents.insertIfNew({ eventId: "m0", type: "message.received", ext: "biz-1", payload: envelope("m0", "message.received", "biz-1", { conversation_id: CONV }) });
+    webhookEvents.insertIfNew({ eventId: "m9", type: "message.received", ext: "biz-1", payload: envelope("m9", "message.received", "biz-1", { conversation_id: other }) });
+    deliver(envelope("h1", "handoff.raised", "biz-1", { conversation_id: CONV }));
+    for (const id of ["m1", "m2", "m3"]) deliver(envelope(id, "message.received", "biz-1", { conversation_id: CONV, channel_kind: "whatsapp" }));
+
+    const held = notificationsForExt("biz-1");
+    const msgs = held.items.filter((i) => i.kind === "message");
+    expect(msgs).toHaveLength(1);
+    expect(msgs[0]).toMatchObject({ id: "m3", read: false, title: "۳ پیام تازه در گفت‌وگوی سپرده‌شده به شما" });
+    expect(held.unread).toBe(2); // the handoff and the one message item
+
+    // Opening the item reads every message of that conversation up to it.
+    markNotificationRead("biz-1", "m3");
+    expect(notificationsForExt("biz-1").items.find((i) => i.kind === "message")?.read).toBe(true);
+    expect(notificationsForExt("biz-1").unread).toBe(1);
+
+    // Once released, later messages are the assistant's again.
+    deliver(envelope("h2", "handoff.released", "biz-1", { conversation_id: CONV, from: "handoff" }));
+    deliver(envelope("m4", "message.received", "biz-1", { conversation_id: CONV }));
+    const released = notificationsForExt("biz-1");
+    expect(released.items.filter((i) => i.kind === "message")).toHaveLength(0);
+    expect(released.items.map((i) => i.id)).toContain("h2");
+  });
+
+  it("hides a seller's own case decision, and counts it as nothing", () => {
+    deliver(envelope("c1", "case.updated", "biz-1", { case_id: CASE, action: "accept", actor: "partner" }));
+    deliver(envelope("c2", "case.updated", "biz-1", { case_id: CASE, action: "accept", actor: "seller" }));
+    deliver(envelope("c3", "case.updated", "biz-1", { case_id: CASE, action: "customer_replied", actor: "customer" }));
+    const n = notificationsForExt("biz-1");
+    expect(n.items.map((i) => i.id)).toEqual(["c3"]);
+    expect(n.unread).toBe(1);
+  });
+});
+
+describe("notification preferences", () => {
+  it("are kept per user and shop under a namespaced settings key, and keep only known families", () => {
+    expect(getNotifyPrefs("u1", "s1")).toEqual({ muted: [] });
+    setNotifyPrefs("u1", "s1", ["orders", "nonsense", "credit", "orders"]);
+    expect(getNotifyPrefs("u1", "s1")).toEqual({ muted: ["orders", "credit"] });
+    expect(getNotifyPrefs("u2", "s1")).toEqual({ muted: [] });
+    expect(getNotifyPrefs("u1", "s2")).toEqual({ muted: [] });
+  });
+
+  it("drop the muted families from the bell and from its unread count", () => {
+    deliver(envelope("e1", "order.created", "biz-1", { code: "A-1" }));
+    deliver(envelope("e2", "payment.evidence_received", "biz-1", { code: "A-1" }));
+    deliver(envelope("e3", "credit.exhausted", "biz-1", { state: "exhausted" }));
+    deliver(envelope("e4", "import.completed", "biz-1", { status: "done" }));
+    const types = visibleTypes(setNotifyPrefs("u1", "s1", ["orders"]), "owner");
+    expect(types).not.toContain("order.created");
+    expect(types).toContain("import.completed");
+    const n = notificationsForExt("biz-1", { types });
+    expect(n.items.map((i) => i.id).sort()).toEqual(["e3", "e4"]);
+    expect(n.unread).toBe(2);
+    expect(notificationsForExt("biz-1").unread).toBe(4);
+  });
+
+  it("mute the bookings family on its own", () => {
+    deliver(envelope("b1", "booking.created", "biz-1", { booking_id: BOOKING, code: "B-1", status: "pending_approval" }));
+    deliver(envelope("b2", "booking.receipt_received", "biz-1", { booking_id: BOOKING, code: "B-1" }));
+    deliver(envelope("e1", "order.created", "biz-1", { code: "A-1" }));
+    expect(notificationsForExt("biz-1", { types: visibleTypes(getNotifyPrefs("u1", "s1"), "owner") }).unread).toBe(3);
+    const types = visibleTypes(setNotifyPrefs("u1", "s1", ["bookings"]), "owner");
+    expect(types).not.toContain("booking.receipt_received");
+    expect(types).toContain("payment.evidence_received");
+    const n = notificationsForExt("biz-1", { types });
+    expect(n.items.map((i) => i.id)).toEqual(["e1"]);
+    expect(n.unread).toBe(1);
+  });
+
+  it("leave bookings out for a role that cannot open the booking pages, muted or not", () => {
+    deliver(envelope("b1", "booking.created", "biz-1", { booking_id: BOOKING, code: "B-1" }));
+    deliver(envelope("h1", "handoff.raised", "biz-1", { conversation_id: BOOKING }));
+    expect(familiesFor("responder")).not.toContain("bookings");
+    expect(familiesFor("finance")).toContain("bookings");
+    const n = notificationsForExt("biz-1", { types: visibleTypes(getNotifyPrefs("u1", "s1"), "responder") });
+    expect(n.items.map((i) => i.id)).toEqual(["h1"]);
+    expect(visibleTypes({ muted: [] }, "fulfillment")).toContain("booking.created");
   });
 });

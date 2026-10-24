@@ -5,7 +5,7 @@ import { FormPageSkeleton } from "@/components/panel/overview/form-skeleton";
 import { PageHeader } from "@/components/panel/overview/parts";
 import { SettingsNav, SettingsNavSkeleton } from "@/components/panel/settings/settings-nav";
 import { TeamManager } from "@/components/panel/settings/team";
-import { requireShopOwner } from "@/server/auth/session";
+import { requireCapability } from "@/server/auth/session";
 import { teamOf } from "@/server/team/team";
 
 export const metadata: Metadata = { title: "تیم" };
@@ -25,7 +25,7 @@ export default function TeamPage() {
 }
 
 async function TeamSection() {
-  const { user, shop } = await requireShopOwner();
+  const { user, shop } = await requireCapability("team.manage");
   const team = teamOf(shop.id);
   return (
     <TeamManager

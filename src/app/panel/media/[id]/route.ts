@@ -24,7 +24,7 @@ function plain(status: number): Response {
 }
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }): Promise<Response> {
-  const seller = await getSeller();
+  const seller = await getSeller("inbox.view");
   if (!seller) return plain(401);
   const { id } = await ctx.params;
   if (!UUID_RE.test(id)) return plain(404);
@@ -33,7 +33,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   try {
     upstream = await getInboxMedia(seller.shop.external_business_id, id);
   } catch (e) {
-    return plain(isBizinError(e) && e.status === 404 ? 404 : 502);
+    if (isBizinError(e) && (e.status === 404 || e.code === "feature_not_entitled")) return plain(e.status);
+    return plain(502);
   }
 
   const type = (upstream.headers.get("content-type") ?? "").split(";")[0].trim().toLowerCase();

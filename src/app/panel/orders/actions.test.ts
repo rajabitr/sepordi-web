@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const api = { setOrderStatus: vi.fn(), approvePaymentEvidence: vi.fn(), rejectPaymentEvidence: vi.fn(), markOrderPaid: vi.fn() };
 vi.mock("next/cache", () => ({ refresh: vi.fn() }));
 vi.mock("@/server/auth/session", () => ({
-  requireSeller: async () => ({ user: { id: "u1" }, shop: { external_business_id: "shop-1" } }),
+  requireCapability: async () => ({ user: { id: "u1" }, shop: { external_business_id: "shop-1" } }),
 }));
+vi.mock("@/server/audit", () => ({ recordActivity: vi.fn() }));
 vi.mock("@/server/bizin/client", () => ({
   setOrderStatus: (...a: unknown[]) => api.setOrderStatus(...a),
   approvePaymentEvidence: (...a: unknown[]) => api.approvePaymentEvidence(...a),

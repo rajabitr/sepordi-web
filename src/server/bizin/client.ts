@@ -266,9 +266,6 @@ export const getConversation = (ext: string, conversationId: string) =>
 export const listMessages = (ext: string, conversationId: string, query?: Query<"listMessages">) =>
   json<Ok<"listMessages">>({ method: "GET", path: `${C(ext, conversationId)}/messages`, query });
 
-export const getMessage = (ext: string, conversationId: string, messageId: string) =>
-  json<Ok<"getMessage">>({ method: "GET", path: `${C(ext, conversationId)}/messages/${seg(messageId)}` });
-
 /** 201 = the saved message; 202 `{status:"sent_not_saved"}` = delivered but not stored: do not resend. */
 export const replyToConversation = (
   ext: string,

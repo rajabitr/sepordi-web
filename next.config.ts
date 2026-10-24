@@ -23,13 +23,19 @@ const csp = [
 ].join("; ");
 
 const securityHeaders = [
-  { key: "Content-Security-Policy", value: csp },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "X-Content-Type-Options", value: "nosniff" },
-  { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()" },
   ...(isDev ? [] : [{ key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains" }]),
 ];
+
+/*
+ * Route handlers that stream seller or customer bytes (receipts, chat media, evidence, case photos, product pictures)
+ * answer with their own `sandbox` CSP and `no-referrer`. A config header for the same key replaces the handler's value,
+ * so the page CSP and referrer policy must not match these paths.
+ */
+export const SANDBOXED_BYTE_ROUTES = ["panel/media", "panel/evidence", "panel/case-photos", "panel/booking/receipts", "p/img"];
+export const PAGE_CSP_SOURCE = `/:path((?!(?:${SANDBOXED_BYTE_ROUTES.join("|")})(?:/|$)).*)`;
 
 const nextConfig: NextConfig = {
   output: "standalone",
@@ -51,7 +57,16 @@ const nextConfig: NextConfig = {
     },
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      {
+        source: PAGE_CSP_SOURCE,
+        headers: [
+          { key: "Content-Security-Policy", value: csp },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+        ],
+      },
+    ];
   },
 };
 

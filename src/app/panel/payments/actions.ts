@@ -6,6 +6,7 @@ import type { ActionResult } from "@/components/panel/overview/action-result";
 import { actionError } from "@/components/panel/overview/settle";
 import { isCardNumber, isIban, normalizeCardNumber, normalizeIban } from "@/lib/persian";
 import { requireShopOwner } from "@/server/auth/session";
+import { recordActivity } from "@/server/audit";
 import * as bizin from "@/server/bizin/client";
 
 export interface PaymentDetailsInput {
@@ -44,6 +45,7 @@ export async function savePaymentDetailsAction(input: PaymentDetailsInput): Prom
       holder_name: holder,
       ...(bank ? { bank_name: bank } : {}),
     });
+    recordActivity(await requireShopOwner(), "payments.save");
     revalidatePath("/panel");
     return { ok: true, data: d };
   } catch (e) {

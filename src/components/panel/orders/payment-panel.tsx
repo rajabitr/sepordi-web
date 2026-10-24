@@ -34,10 +34,12 @@ export interface PaymentPanelProps {
   /** The order is `confirmed`: approve, reject and mark-paid are open. */
   awaitingPayment: boolean;
   evidence: Evidence[];
+  /** The member's role may decide payments (`orders.payment`); without it the receipts are read-only. */
+  canDecide: boolean;
 }
 
 /** Receipts of one order and the seller's three payment decisions. Nothing here decides on its own. */
-export function PaymentPanel({ orderId, code, total, awaitingPayment, evidence }: PaymentPanelProps) {
+export function PaymentPanel({ orderId, code, total, awaitingPayment, evidence, canDecide }: PaymentPanelProps) {
   const [viewing, setViewing] = React.useState<Evidence | null>(null);
   const [approving, setApproving] = React.useState<Evidence | null>(null);
   const [rejecting, setRejecting] = React.useState<Evidence | null>(null);
@@ -46,7 +48,7 @@ export function PaymentPanel({ orderId, code, total, awaitingPayment, evidence }
   const amount = formatToman(total);
   const approve = useIntent();
 
-  const decidable = (e: Evidence) => awaitingPayment && e.status === "pending_verification";
+  const decidable = (e: Evidence) => canDecide && awaitingPayment && e.status === "pending_verification";
 
   return (
     <div className="flex flex-col gap-4">
@@ -136,7 +138,7 @@ export function PaymentPanel({ orderId, code, total, awaitingPayment, evidence }
         </ul>
       )}
 
-      {awaitingPayment && (
+      {canDecide && awaitingPayment && (
         <div className="flex flex-col gap-2 rounded-xl bg-muted p-4">
           <p className="text-sm leading-7">واریز را بدون رسید در حساب خودتان دیده‌اید؟ پرداخت را دستی ثبت کنید.</p>
           <Button variant="outline" className="min-h-11 self-start" onClick={() => setMarkingPaid(true)}>

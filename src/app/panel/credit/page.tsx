@@ -27,14 +27,9 @@ export default function CreditPage({ searchParams }: { searchParams: SearchParam
       <Suspense fallback={<CreditStateSkeleton />}>
         <CreditStateCard />
       </Suspense>
-      <section className="flex flex-col gap-4" aria-labelledby="plans-title">
-        <h2 id="plans-title" className="text-lg font-semibold leading-tight">
-          بسته‌ها
-        </h2>
-        <Suspense fallback={<PlansSkeleton />}>
-          <PlansSection />
-        </Suspense>
-      </section>
+      <Suspense fallback={<PlansSkeleton />}>
+        <PlansSection />
+      </Suspense>
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="lg:col-span-2">
           <Suspense fallback={<MyCreditOrdersSkeleton />}>

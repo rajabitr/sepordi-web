@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 
 import { isTelegramToken, normalizeTelegramToken, pendingWhatsApp } from "@/components/panel/channels/channel-meta";
 import { requireShopOwner } from "@/server/auth/session";
+import { recordActivity } from "@/server/audit";
 import { connectTelegram, connectWhatsApp, createConnectLink, disconnectChannel, getTenantChannels } from "@/server/bizin/client";
 import { isBizinError } from "@/server/bizin/error";
 import { toFarsiError } from "@/server/bizin/errors-fa";
@@ -24,6 +25,7 @@ export async function startWhatsAppAction(): Promise<{ ok: true; channelId: stri
   const ext = (await requireShopOwner()).shop.external_business_id;
   try {
     const started = await connectWhatsApp(ext, {});
+    recordActivity(await requireShopOwner(), "channel.connect", { type: "channel", id: started.channel_id }, { channel: "whatsapp" });
     return { ok: true, channelId: started.channel_id };
   } catch (e) {
     if (!isBizinError(e) || e.code !== "whatsapp_pairing_in_progress") return failure(e);
@@ -51,6 +53,7 @@ export async function disconnectChannelAction(channelId: string): Promise<{ ok: 
   const ext = (await requireShopOwner()).shop.external_business_id;
   try {
     await disconnectChannel(ext, String(channelId));
+    recordActivity(await requireShopOwner(), "channel.disconnect", { type: "channel", id: String(channelId) });
     refresh();
     return { ok: true };
   } catch (e) {
@@ -66,6 +69,7 @@ export async function connectTelegramAction(token: string): Promise<{ ok: true }
   }
   try {
     await connectTelegram(ext, { bot_token: normalizeTelegramToken(token) });
+    recordActivity(await requireShopOwner(), "channel.connect", { type: "channel" }, { channel: "telegram" });
     refresh();
     return { ok: true };
   } catch (e) {
@@ -81,6 +85,7 @@ export async function connectInstagramAction(): Promise<ChannelActionFailure> {
   try {
     const link = await createConnectLink(ext, { channel: "instagram", return_url: `${base}/panel/channels/instagram/return`, replace: false });
     url = link.url;
+    recordActivity(await requireShopOwner(), "channel.connect", { type: "channel" }, { channel: "instagram" });
   } catch (e) {
     return failure(e);
   }

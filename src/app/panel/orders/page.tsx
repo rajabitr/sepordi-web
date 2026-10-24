@@ -19,7 +19,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { Stat } from "@/components/ui/stat";
 import { fa } from "@/lib/utils";
-import { requireSeller } from "@/server/auth/session";
+import { requireCapability } from "@/server/auth/session";
 import { listOrders } from "@/server/bizin/client";
 import { toFarsiError } from "@/server/bizin/errors-fa";
 
@@ -51,7 +51,7 @@ const show = (c: Counter | null) => (c ? (c.more ? `بیش از ${fa(c.count)}` 
 
 async function OrdersSection({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
-  const { shop, role } = await requireSeller();
+  const { shop, role } = await requireCapability("orders.view");
   const ext = shop.external_business_id;
   const filters = parseOrderFilters(sp);
 

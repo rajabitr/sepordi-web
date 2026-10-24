@@ -4,61 +4,13 @@ import { randomUUID } from "node:crypto";
 
 import type { Schemas } from "../schema";
 import type { TransportRequest } from "../transport";
+import { bookingRoutes } from "./booking";
 import { seedTenant } from "./fixtures";
+import { fail, iso, MockHttpError, noContent, obj, ok, page, tenant, type Ctx, type Handler, type Result } from "./http";
 import type { MockTenant, MockWorld } from "./state";
 
-class MockHttpError extends Error {
-  constructor(
-    readonly status: number,
-    readonly code: string,
-    readonly field?: string,
-    readonly params?: Record<string, unknown>,
-  ) {
-    super(code);
-  }
-}
-
-const fail = (status: number, code: string, field?: string, params?: Record<string, unknown>): never => {
-  throw new MockHttpError(status, code, field, params);
-};
-
-interface Ctx {
-  world: MockWorld;
-  params: string[];
-  query: URLSearchParams;
-  body: unknown;
-  form?: FormData;
-  now: number;
-}
-
-type Result = { status: number; json?: unknown; bytes?: { mime: string; data: Buffer } };
-type Handler = (c: Ctx) => Result | Promise<Result>;
-
-const ok = (json: unknown, status = 200): Result => ({ status, json });
-const noContent = (): Result => ({ status: 204 });
-const iso = (ms: number) => new Date(ms).toISOString();
 const QUEUES = ["sales", "support", "accounting", "appointment", "fulfillment"];
 const PAYMENT_REJECT = ["amount_mismatch", "unreadable", "not_received", "wrong_destination", "other"];
-
-function tenant(c: Ctx): MockTenant {
-  return c.world.tenants.get(c.params[0]) ?? fail(404, "tenant_not_found");
-}
-
-function obj(c: Ctx): Record<string, unknown> {
-  if (c.body === undefined || c.body === null) return {};
-  if (typeof c.body !== "object" || Array.isArray(c.body)) fail(400, "bad_request_body");
-  return c.body as Record<string, unknown>;
-}
-
-function page<T>(c: Ctx, items: T[], max = 100): { items: T[]; next_cursor: string | null } {
-  const limit = c.query.has("limit") ? Number(c.query.get("limit")) : 50;
-  if (!Number.isInteger(limit) || limit < 1 || limit > max) fail(400, "limit_invalid", undefined, { max });
-  const cursor = c.query.get("cursor");
-  const offset = cursor ? Number(Buffer.from(cursor, "base64url").toString()) : 0;
-  if (!Number.isInteger(offset) || offset < 0) fail(400, "invalid_value", "cursor");
-  const next = offset + limit < items.length ? Buffer.from(String(offset + limit)).toString("base64url") : null;
-  return { items: items.slice(offset, offset + limit), next_cursor: next };
-}
 
 function luhn(d: string): boolean {
   let sum = 0;
@@ -253,10 +205,6 @@ const routes: [TransportRequest["method"], RegExp, Handler][] = [
     const from = c.query.get("from") ?? t.stats[Math.max(0, t.stats.length - 7)].date;
     if (from > to) fail(400, "stats_range_invalid", undefined, { max_days: 92 });
     return ok({ days: t.stats.filter((d) => d.date >= from && d.date <= to) });
-  }],
-  ["POST", /^\/tenants\/([^/]+)\/owner\/activation-link$/, (c) => {
-    if (tenant(c).detail.owner?.status === "active") fail(409, "owner_already_active");
-    return ok({ activation_url: `https://www.bizin.app/activate/mock-${randomUUID()}`, expires_at: iso(c.now + 72 * 3600_000) }, 201);
   }],
 
   // channels
@@ -762,6 +710,8 @@ const routes: [TransportRequest["method"], RegExp, Handler][] = [
   }],
   ["POST", /^\/onboarding-jobs\/([^/]+)\/(commit|cancel)$/, (c) =>
     finishJob(c, c.world.onboardingJobs.find((j) => j.id === c.params[0]) ?? fail(404, "import_job_not_found"), c.params[1])],
+
+  ...bookingRoutes,
 ];
 
 // ---- dispatch ----------------------------------------------------------------------------------------------

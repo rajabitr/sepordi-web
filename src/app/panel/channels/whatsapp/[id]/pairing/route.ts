@@ -9,7 +9,7 @@ const NO_STORE = { "Cache-Control": "no-store" };
  * shop), so it goes only to a signed-in owner of this business and is never cached.
  */
 export async function GET(_request: Request, ctx: { params: Promise<{ id: string }> }) {
-  const seller = await getSeller();
+  const seller = await getSeller("channels.manage");
   if (!seller) return Response.json({ error: { message: "نشست شما تمام شده است. دوباره وارد شوید." } }, { status: 401, headers: NO_STORE });
   if (seller.role !== "owner") return Response.json({ error: { message: "اتصال کانال فقط با مالک فروشگاه است." } }, { status: 403, headers: NO_STORE });
   const { id } = await ctx.params;

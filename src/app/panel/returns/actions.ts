@@ -13,7 +13,8 @@ import {
 } from "@/components/panel/returns/model";
 import type { ActionResult } from "@/components/panel/orders/model";
 import { en } from "@/lib/utils";
-import { requireSeller } from "@/server/auth/session";
+import { requireCapability } from "@/server/auth/session";
+import { recordActivity } from "@/server/audit";
 import { actOnCase } from "@/server/bizin/client";
 import { toFarsiError } from "@/server/bizin/errors-fa";
 
@@ -33,7 +34,7 @@ const KEY_RE = /^[\x21-\x7e]{1,255}$/;
 
 /** Records the shop's decision on a return or complaint; Bizin moves no money, the refund is the seller's own transfer. */
 export async function actOnCaseAction(caseId: string, input: CaseActionInput, idempotencyKey: string): Promise<ActionResult> {
-  const { shop } = await requireSeller();
+  const { shop, user } = await requireCapability("returns.manage");
   if (!UUID_RE.test(caseId) || !KEY_RE.test(idempotencyKey) || !CASE_STATES.includes(input.expectedState)) {
     return { ok: false, code: "bad_input", message: "اطلاعات این صفحه قدیمی است. صفحه را تازه کنید." };
   }
@@ -71,6 +72,7 @@ export async function actOnCaseAction(caseId: string, input: CaseActionInput, id
       },
       { idempotencyKey },
     );
+    recordActivity({ shop, user }, "return.update", { type: "case", id: caseId }, { action: input.action });
     return { ok: true };
   } catch (e) {
     const f = toFarsiError(e);

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { Suspense } from "react";
-import { ArrowRight, Info, MessagesSquare, PackageX } from "lucide-react";
+import { ArrowRight, MessagesSquare, PackageX } from "lucide-react";
 
 import { OrderStatusBadge, PaymentStatusBadge } from "@/components/panel/orders/badges";
+import { isNotEntitled } from "@/components/panel/orders/entitlement";
 import { LoadError } from "@/components/panel/orders/load-error";
 import {
   SOURCE_LABEL,
@@ -14,6 +15,7 @@ import {
   shippingBasisLabel,
   type Order,
 } from "@/components/panel/orders/model";
+import { NotEntitled } from "@/components/panel/orders/not-entitled";
 import { OrderMoves } from "@/components/panel/orders/order-moves";
 import { PaymentPanel } from "@/components/panel/orders/payment-panel";
 import { OrderDetailSkeleton } from "@/components/panel/orders/skeletons";
@@ -26,7 +28,8 @@ import { Timeline } from "@/components/ui/timeline";
 import { formatDateTime } from "@/lib/date";
 import { formatToman } from "@/lib/money";
 import { fa } from "@/lib/utils";
-import { requireSeller } from "@/server/auth/session";
+import { requireCapability } from "@/server/auth/session";
+import { can } from "@/server/team/roles";
 import { getOrder, listPaymentEvidence } from "@/server/bizin/client";
 import { isBizinError } from "@/server/bizin/error";
 import { toFarsiError } from "@/server/bizin/errors-fa";
@@ -67,7 +70,7 @@ function OrderMissing() {
 
 async function OrderSection({ params }: { params: Params }) {
   const { id } = await params;
-  const { shop } = await requireSeller();
+  const { shop, role } = await requireCapability("orders.view");
   if (!UUID_RE.test(id)) return <OrderMissing />;
   const ext = shop.external_business_id;
 
@@ -93,14 +96,16 @@ async function OrderSection({ params }: { params: Params }) {
             ثبت در {formatDateTime(order.created_at)}، {SOURCE_LABEL[order.source] ?? "سپردی"}
           </p>
         </div>
-        <OrderMoves
-          orderId={order.id}
-          code={order.code}
-          status={order.status}
-          total={order.totals.total}
-          paymentStatus={order.payment.status}
-          pendingEvidence={order.payment.pending_evidence}
-        />
+        {can(role, "orders.status") && (
+          <OrderMoves
+            orderId={order.id}
+            code={order.code}
+            status={order.status}
+            total={order.totals.total}
+            paymentStatus={order.payment.status}
+            pendingEvidence={order.payment.pending_evidence}
+          />
+        )}
       </header>
 
       {order.status === "confirmed" && (
@@ -142,6 +147,7 @@ async function OrderSection({ params }: { params: Params }) {
                   total={order.totals.total}
                   awaitingPayment={awaitsPayment(order)}
                   evidence={evidenceResult.value.data}
+                  canDecide={can(role, "orders.payment")}
                 />
               ) : (
                 <EvidenceError error={evidenceResult.reason} orderId={order.id} />
@@ -163,9 +169,6 @@ async function OrderSection({ params }: { params: Params }) {
               />
             </CardContent>
           </Card>
-          <Alert variant="info" icon={Info} title="ویرایش سفارش">
-            ویرایش اقلام و نشانی سفارش به‌زودی به همین صفحه اضافه می‌شود.
-          </Alert>
         </div>
       </div>
     </div>
@@ -173,6 +176,14 @@ async function OrderSection({ params }: { params: Params }) {
 }
 
 function EvidenceError({ error, orderId }: { error: unknown; orderId: string }) {
+  if (isNotEntitled(error)) {
+    return (
+      <NotEntitled
+        className="justify-center"
+        description="وقتی فعال شود، رسیدهای کارت‌به‌کارت این سفارش و ثبت پرداخت دستی همین‌جا می‌آیند."
+      />
+    );
+  }
   const f = toFarsiError(error);
   return <LoadError title="رسیدهای این سفارش بارگذاری نشد" message={f.message} requestId={f.requestId} retryHref={`/panel/orders/${orderId}`} />;
 }

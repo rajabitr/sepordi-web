@@ -23,15 +23,18 @@ import {
   LIMITS,
   newProductExt,
   newVariantExt,
+  resolveStockConflicts,
+  stockConflictLine,
   type DraftErrors,
   type ProductDraft,
+  type StockConflict,
   type VariantDraft,
 } from "./catalog";
 
 let rowSeq = 0;
 const nextKey = () => `n${++rowSeq}`;
 
-const emptyVariant = (key: string): VariantDraft => ({ key, ext: null, title: "", price: "", stock: "", unlimited: true });
+const emptyVariant = (key: string): VariantDraft => ({ key, ext: null, title: "", price: "", stock: "", unlimited: true, base: null });
 
 export const EMPTY_DRAFT: ProductDraft = {
   title: "",
@@ -71,6 +74,7 @@ export function ProductForm({
   const [formError, setFormError] = React.useState<{ message: string; requestId?: string } | null>(null);
   const [pending, startTransition] = React.useTransition();
   const [created, setCreated] = React.useState(false);
+  const [conflicts, setConflicts] = React.useState<StockConflict[] | null>(null);
   const extRef = React.useRef<string | null>(productExt);
   const formRef = React.useRef<HTMLFormElement>(null);
   const isNew = productExt === null;
@@ -87,10 +91,15 @@ export function ProductForm({
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
+    save(draft);
+  }
+
+  function save(current: ProductDraft) {
     setFormError(null);
+    setConflicts(null);
     extRef.current ??= newProductExt();
     const ext = extRef.current;
-    const withIds: ProductDraft = { ...draft, variants: draft.variants.map((v) => (v.ext ? v : { ...v, ext: newVariantExt() })) };
+    const withIds: ProductDraft = { ...current, variants: current.variants.map((v) => (v.ext ? v : { ...v, ext: newVariantExt() })) };
     setDraft(withIds);
 
     const local = buildProductPut(withIds);
@@ -103,8 +112,20 @@ export function ProductForm({
     startTransition(async () => {
       const res = await saveProductAction(ext, withIds);
       if (res.ok) {
+        setDraft((d) => ({
+          ...d,
+          variants: d.variants.map((v) => {
+            if (!v.ext || !(v.ext in res.stocks)) return v;
+            const s = res.stocks[v.ext];
+            return { ...v, base: { stock: s }, unlimited: s === null, stock: s === null ? "" : groupDigits(String(s)) };
+          }),
+        }));
         toast({ variant: "success", title: isNew ? "محصول ساخته شد" : "تغییرات ذخیره شد", description: "دستیار از پیام بعدی همین اطلاعات را می‌گوید." });
         if (isNew) setCreated(true);
+        return;
+      }
+      if (res.conflicts?.length) {
+        setConflicts(res.conflicts);
         return;
       }
       const fieldErrors = res.errors ?? serverFieldErrors(withIds, res.code, res.field);
@@ -272,7 +293,7 @@ export function ProductForm({
             افزودن تنوع
           </Button>
           <p className="text-xs leading-6 text-muted-foreground">
-            ذخیره، فهرست تنوع‌ها را کامل جایگزین می‌کند: تنوعی که حذف کنید پاک نمی‌شود، غیرفعال می‌شود تا سفارش‌های قبلی سالم بمانند. موجودی با هر ذخیره دقیقاً همین عدد می‌شود؛ اگر در این فاصله فروشی داشته‌اید، صفحه را تازه کنید.
+            ذخیره، فهرست تنوع‌ها را کامل جایگزین می‌کند: تنوعی که حذف کنید پاک نمی‌شود، غیرفعال می‌شود تا سفارش‌های قبلی سالم بمانند. موجودی تنوعی که دست نزنید با ذخیره عوض نمی‌شود و فروش‌های این فاصله سر جایش می‌ماند؛ اگر عددی را عوض کنید و در این فاصله فروشی ثبت شده باشد، پیش از ذخیره از شما می‌پرسیم.
           </p>
           {panelOnlyVariants.length > 0 && (
             <Alert variant="warning" title="تنوع‌های فقط‌خواندنی">
@@ -285,6 +306,35 @@ export function ProductForm({
       {isNew && (
         <Alert icon={ImagePlus} title="عکس محصول">
           بعد از ساخت محصول، عکس‌ها را در صفحه‌ی ویرایش همان محصول اضافه کنید.
+        </Alert>
+      )}
+
+      {conflicts && (
+        <Alert variant="warning" title="موجودی در این فاصله تغییر کرده است">
+          <div className="flex flex-col gap-3">
+            <p className="leading-7">از وقتی این فرم را باز کردید فروش یا تغییری ثبت شده است. کدام عدد ثبت شود؟</p>
+            <ul className="flex flex-col gap-1 leading-7">
+              {conflicts.map((c) => (
+                <li key={c.key}>
+                  {stockConflictLine(
+                    c,
+                    draft.variants.findIndex((v) => v.key === c.key),
+                  )}
+                </li>
+              ))}
+            </ul>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="brand" className="min-h-11" disabled={pending} onClick={() => save(resolveStockConflicts(draft, conflicts, "reapply"))}>
+                تغییر من روی موجودی فعلی
+              </Button>
+              <Button variant="outline" className="min-h-11" disabled={pending} onClick={() => save(resolveStockConflicts(draft, conflicts, "mine"))}>
+                ثبت همان عدد من
+              </Button>
+            </div>
+            <p className="text-xs leading-6 text-muted-foreground">
+              «تغییر من روی موجودی فعلی» همان مقدار کم یا زیادی را که وارد کردید روی موجودی امروز اعمال می‌کند تا فروش‌های این فاصله از بین نرود.
+            </p>
+          </div>
         </Alert>
       )}
 

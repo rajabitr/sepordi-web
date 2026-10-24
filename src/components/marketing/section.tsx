@@ -58,6 +58,7 @@ export function CtaBand({ title = "دستیار فروش‌تون را امرو�
     <section aria-labelledby="cta-title" className="px-4 py-16 sm:px-6">
       <div className="relative isolate mx-auto max-w-5xl overflow-hidden rounded-3xl bg-primary px-6 py-16 text-center text-primary-foreground sm:px-12">
         <div aria-hidden className="absolute inset-x-0 -top-24 -z-10 mx-auto size-96 rounded-full bg-brand/40 blur-3xl" />
+        <div aria-hidden className="absolute -bottom-32 -start-16 -z-10 size-72 rounded-full bg-accent-rose/25 blur-3xl" />
         <h2 id="cta-title" className="text-balance text-3xl font-bold leading-tight">{title}</h2>
         <p className="mx-auto mt-4 max-w-xl text-pretty text-base leading-7 opacity-85">{description}</p>
         <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">

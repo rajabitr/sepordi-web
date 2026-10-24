@@ -10,7 +10,7 @@ import { hashToken, requireSeller, requireShopOwner, SESSION_COOKIE } from "@/se
 import { openDb, setDbForTests } from "@/server/db";
 import { invites, members, sessions, shops, users, type MemberRole, type ShopRow, type UserRow } from "@/server/db/repo";
 
-import { LAST_OWNER_FA, OTHER_SHOP_FA, changeMemberRole, inviteMember, removeMember } from "./team";
+import { LAST_OWNER_FA, acceptPendingInvite, changeMemberRole, inviteMember, removeMember } from "./team";
 
 const jar = new Map<string, string>();
 vi.mock("next/headers", () => ({
@@ -146,12 +146,21 @@ describe("invites", () => {
     expect(members.get(shop.id, u.id)?.role).toBe("owner");
   });
 
-  it("refuses a number that already owns or belongs to another shop", () => {
+  it("invites a number that owns another shop; they keep it and join this one too", () => {
     const a = shopOf(user(), "sp_a");
     const otherOwner = user();
-    shopOf(otherOwner, "sp_b");
-    expect(inviteMember(a.id, a.user_id, otherOwner.phone, "agent")).toMatchObject({ ok: false, field: "phone", message: OTHER_SHOP_FA });
+    const b = shopOf(otherOwner, "sp_b");
+    expect(inviteMember(a.id, a.user_id, otherOwner.phone, "finance")).toMatchObject({ ok: true });
+    expect(acceptPendingInvite(otherOwner.id)).toBe("joined");
+    expect(members.get(a.id, otherOwner.id)?.role).toBe("finance");
+    expect(members.get(b.id, otherOwner.id)?.role).toBe("owner");
     expect(invites.pendingForShop(a.id)).toHaveLength(0);
+  });
+
+  it("refuses a number already on this team", () => {
+    const a = shopOf(user(), "sp_a");
+    const agent = member(a, "agent");
+    expect(inviteMember(a.id, a.user_id, agent.phone, "owner")).toMatchObject({ ok: false, field: "phone" });
   });
 });
 

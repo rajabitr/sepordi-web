@@ -1,5 +1,17 @@
 import "server-only";
 
+import type {
+  Booking,
+  BookingCategory,
+  BookingDayOverride,
+  BookingEvent,
+  BookingException,
+  BookingReceipt,
+  BookingResource,
+  BookingSchedule,
+  BookingService,
+  BookingSettings,
+} from "../booking/types";
 import type { Schemas } from "../schema";
 
 export interface MockMedia {
@@ -39,6 +51,23 @@ export interface MockTenant {
   catalogRows?: Map<string, (Schemas["CatalogImportRow"] & { image_urls: string[] })[]>;
   /** Pictures a committed file job attached, by product ext; the Partner product shape carries none. */
   productImages?: Map<string, string[]>;
+  /** The appointment book; made on the first booking call (booking.ts). */
+  booking?: MockBookingState;
+}
+
+export interface MockBookingState {
+  settings: BookingSettings;
+  categories: BookingCategory[];
+  resources: BookingResource[];
+  schedules: BookingSchedule[];
+  services: BookingService[];
+  exceptions: BookingException[];
+  overrides: BookingDayOverride[];
+  bookings: Booking[];
+  events: Map<string, BookingEvent[]>;
+  receipts: Map<string, BookingReceipt[]>;
+  /** The last booking code number handed out. */
+  seq: number;
 }
 
 export interface MockWorld {

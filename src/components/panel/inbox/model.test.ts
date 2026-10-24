@@ -8,6 +8,7 @@ import {
   imageProblem,
   mergeMessages,
   replyWindowClosed,
+  sheetFilterCount,
   type Conversation,
   type Message,
 } from "./model";
@@ -47,6 +48,29 @@ describe("list filters", () => {
     expect(filtersToSearch(f).toString()).toBe(new URLSearchParams({ state: "handoff", channel: "instagram", q: "سارا" }).toString());
     expect(filtersToApiQuery(f, "cur")).toEqual({ limit: 30, state: ["handoff"], channel: "instagram", queue: undefined, q: "سارا", cursor: "cur" });
     expect(filtersToApiQuery({ state: "all" }).state).toBeUndefined();
+  });
+});
+
+describe("sheet filters", () => {
+  it("round-trip through the URL and count only what the sheet holds", () => {
+    const qs = "queue=support&priority=high&reason_class=SYSTEM_FAILURE&status=closed&has_order=true&until=2026-03-20";
+    const f = filtersFromSearch(new URLSearchParams(qs));
+    expect(f).toMatchObject({ queue: "support", priority: "high", reasonClass: "SYSTEM_FAILURE", status: "closed", hasOrder: true, until: "2026-03-20" });
+    expect(filtersToSearch(f).toString()).toBe(qs);
+    expect(sheetFilterCount(f)).toBe(6);
+    expect(sheetFilterCount(filtersFromSearch(new URLSearchParams("state=ai&channel=telegram&q=سارا")))).toBe(0);
+  });
+
+  it("keeps has_order=false, which is a filter and not an empty value", () => {
+    const f = filtersFromSearch(new URLSearchParams("has_order=false"));
+    expect(f.hasOrder).toBe(false);
+    expect(filtersToApiQuery(f).has_order).toBe(false);
+    expect(filtersToSearch(f).toString()).toBe("has_order=false");
+  });
+
+  it("ends the picked Tehran day at the next Tehran midnight, in UTC", () => {
+    expect(filtersToApiQuery({ state: "all", until: "2026-03-20" }).until).toBe("2026-03-20T20:30:00.000Z");
+    expect(filtersFromSearch(new URLSearchParams("until=2026-13-01")).until).toBeUndefined();
   });
 });
 

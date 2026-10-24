@@ -23,7 +23,7 @@ export async function GET(
   _req: Request,
   ctx: { params: Promise<{ caseId: string; photoId: string }> },
 ): Promise<Response> {
-  const seller = await getSeller();
+  const seller = await getSeller("returns.view");
   if (!seller) return plain(401);
   const { caseId, photoId } = await ctx.params;
   if (!UUID_RE.test(caseId) || !UUID_RE.test(photoId)) return plain(404);

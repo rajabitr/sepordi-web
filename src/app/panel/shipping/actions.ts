@@ -4,6 +4,7 @@ import type { ActionResult } from "@/components/panel/overview/action-result";
 import { actionError } from "@/components/panel/overview/settle";
 import { fromApi, toShippingBody, type ShippingFormValue } from "@/components/panel/shipping/model";
 import { requireShopOwner } from "@/server/auth/session";
+import { recordActivity } from "@/server/audit";
 import * as bizin from "@/server/bizin/client";
 
 export async function saveShippingAction(input: ShippingFormValue): Promise<ActionResult<ShippingFormValue>> {
@@ -18,7 +19,9 @@ export async function saveShippingAction(input: ShippingFormValue): Promise<Acti
   });
   if (!check.ok) return { ok: false, field: check.field, message: check.message };
   try {
-    return { ok: true, data: fromApi(await bizin.putShipping(shop.external_business_id, check.body)) };
+    const saved = await bizin.putShipping(shop.external_business_id, check.body);
+    recordActivity(await requireShopOwner(), "shipping.save");
+    return { ok: true, data: fromApi(saved) };
   } catch (e) {
     return actionError(e);
   }

@@ -9,11 +9,15 @@ export const contentType = "image/png";
 
 /*
  * Satori renders without a document, so CSS variables cannot resolve: these literals mirror the sepordi theme in
- * globals.css (--primary, --brand, --primary-foreground) and must change with it.
+ * globals.css (--primary, --brand, --primary-foreground, --accent-rose, --accent-peach, --surface-lavender) and must
+ * change with it.
  */
 const NAVY = "#2B2451";
 const VIOLET = "#7B62FF";
 const WHITE = "#FFFFFF";
+const ROSE = "#FE90A3";
+const PEACH = "#FFC2A0";
+const LAVENDER = "#E9E5FF";
 
 const ZWNJ = "‌";
 
@@ -70,7 +74,8 @@ export default function OpengraphImage() {
           alignItems: "flex-end",
           justifyContent: "space-between",
           padding: 72,
-          background: NAVY,
+          backgroundColor: NAVY,
+          backgroundImage: `radial-gradient(circle at 100% 0%, ${VIOLET}66, transparent 45%), radial-gradient(circle at 0% 100%, ${ROSE}40, transparent 40%)`,
           color: WHITE,
           fontFamily: "Vazirmatn",
         }}
@@ -84,12 +89,16 @@ export default function OpengraphImage() {
           <RtlLine text="دایرکت‌ها را بسپارید به سپردی" style={{ fontSize: 72, fontWeight: 700, lineHeight: 1.25, justifyContent: "flex-start" }} />
           <RtlLine
             text="جواب از روی کاتالوگ خودتون، پیش‌فاکتور در چت و رسید کارت‌به‌کارت با تأیید شما"
-            style={{ marginTop: 24, fontSize: 32, fontWeight: 400, lineHeight: 1.6, opacity: 0.85, maxWidth: 960 }}
+            style={{ marginTop: 24, fontSize: 32, fontWeight: 400, lineHeight: 1.6, color: LAVENDER, maxWidth: 960 }}
           />
         </div>
         <div style={{ display: "flex", width: "100%", justifyContent: "flex-end", alignItems: "center", gap: 16 }}>
-          <RtlLine text="واتس‌اپ · اینستاگرام · تلگرام" style={{ fontSize: 28, fontWeight: 400, opacity: 0.85 }} />
-          <div style={{ display: "flex", width: 96, height: 8, borderRadius: 4, background: VIOLET }} />
+          <RtlLine text="واتس‌اپ · اینستاگرام · تلگرام" style={{ fontSize: 28, fontWeight: 400, color: LAVENDER }} />
+          <div style={{ display: "flex", gap: 8 }}>
+            {[PEACH, ROSE, VIOLET].map((c) => (
+              <div key={c} style={{ display: "flex", width: 40, height: 8, borderRadius: 4, background: c }} />
+            ))}
+          </div>
         </div>
       </div>
     ),

@@ -2,7 +2,7 @@ import "server-only";
 
 import { isBizinError } from "@/server/bizin/error";
 import { toFarsiError } from "@/server/bizin/errors-fa";
-import type { FaError } from "@/components/panel/inbox/model";
+import { NOT_ENTITLED, type FaError } from "@/components/panel/inbox/model";
 
 export const NO_STORE = { "Cache-Control": "no-store" } as const;
 
@@ -10,6 +10,7 @@ export const SIGNED_OUT: FaError = { message: "نشست شما تمام شده �
 export const NOT_FOUND: FaError = { message: "این گفت‌وگو دیگر وجود ندارد.", code: "conversation_not_found" };
 
 export function faError(e: unknown): FaError {
+  if (isBizinError(e) && e.code === NOT_ENTITLED.code) return NOT_ENTITLED;
   const { message, code, requestId } = toFarsiError(e);
   return requestId ? { message, code, requestId } : { message, code };
 }

@@ -3,8 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const actOnCase = vi.fn();
 vi.mock("next/cache", () => ({ refresh: vi.fn() }));
 vi.mock("@/server/auth/session", () => ({
-  requireSeller: async () => ({ user: { id: "u1" }, shop: { external_business_id: "shop-1" } }),
+  requireCapability: async () => ({ user: { id: "u1" }, shop: { external_business_id: "shop-1" } }),
 }));
+vi.mock("@/server/audit", () => ({ recordActivity: vi.fn() }));
 vi.mock("@/server/bizin/client", () => ({ actOnCase: (...a: unknown[]) => actOnCase(...a) }));
 
 const { actOnCaseAction } = await import("./actions");

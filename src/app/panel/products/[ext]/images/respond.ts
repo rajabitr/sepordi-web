@@ -21,7 +21,7 @@ export async function authorize(
   { write }: { write: boolean },
 ): Promise<{ seller: SellerContext; productExt: string } | Response> {
   if (write && !sameOrigin(request)) return fail(403, "درخواست نامعتبر است.");
-  const seller = await getSeller();
+  const seller = await getSeller(write ? "products.edit" : "products.view");
   if (!seller) return fail(401, "نشست شما تمام شده است. دوباره وارد شوید.");
   const productExt = (await params).ext;
   if (!isValidExt(productExt)) return fail(404, "این محصول پیدا نشد.");

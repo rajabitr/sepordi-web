@@ -18,8 +18,7 @@ import { useToast } from "@/components/ui/toast";
 import { formatDate } from "@/lib/date";
 import { formatIranMobile } from "@/lib/persian";
 import { fa } from "@/lib/utils";
-
-type Role = "owner" | "agent";
+import { MEMBER_ROLES, ROLE_FA, ROLE_HINT_FA, type MemberRole as Role } from "@/server/team/roles";
 
 export interface TeamMemberView {
   userId: string;
@@ -36,11 +35,7 @@ export interface TeamInviteView {
   createdAt: string;
 }
 
-const ROLE_FA: Record<Role, string> = { owner: "مالک", agent: "اپراتور" };
-const ROLE_OPTIONS = [
-  { value: "agent", label: ROLE_FA.agent },
-  { value: "owner", label: ROLE_FA.owner },
-];
+const ROLE_OPTIONS = [...MEMBER_ROLES.slice(1), MEMBER_ROLES[0]].map((value) => ({ value, label: ROLE_FA[value] }));
 
 const mobile = (phone: string) => (
   <bdi dir="ltr" className="whitespace-nowrap">
@@ -123,12 +118,15 @@ function InviteForm() {
         <Alert variant="info" title="پیامکی فرستاده نمی‌شود">
           <p>
             خودتان به همکارتان خبر بدهید که با همین شماره در <bdi dir="ltr">sepordi.ir</bdi> وارد شود یا ثبت‌نام کند؛ همان لحظه به تیم اضافه
-            می‌شود و نیازی به ساختن فروشگاه ندارد.
+            می‌شود و نیازی به ساختن فروشگاه ندارد. اگر خودش فروشگاهی در سپردی دارد، هر دو را از منوی بالای پنل می‌بیند.
           </p>
-          <p className="mt-2">
-            مالک به همه‌ی بخش‌ها دسترسی دارد. اپراتور فقط داشبورد، صندوق پیام، سفارش‌ها، محصولات و مرجوعی‌ها را می‌بیند و به پرداخت، کانال‌ها،
-            اعتبار، ارسال، دستیار و تیم دسترسی ندارد.
-          </p>
+          <ul className="mt-2 flex flex-col gap-1">
+            {MEMBER_ROLES.map((r) => (
+              <li key={r}>
+                <span className="font-semibold">{ROLE_FA[r]}:</span> {ROLE_HINT_FA[r]}
+              </li>
+            ))}
+          </ul>
         </Alert>
       </CardContent>
     </Card>

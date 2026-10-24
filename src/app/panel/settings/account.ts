@@ -29,11 +29,3 @@ export async function endOtherSessions(userId: string): Promise<number> {
   const r = getDb().prepare("DELETE FROM sessions WHERE user_id = ? AND token_hash != ?").run(userId, keep);
   return Number(r.changes);
 }
-
-export function otherSessionCount(userId: string, currentToken: string | undefined): number {
-  const keep = currentToken ? hashToken(currentToken) : "";
-  const r = getDb()
-    .prepare("SELECT COUNT(*) AS n FROM sessions WHERE user_id = ? AND token_hash != ? AND expires_at > ?")
-    .get(userId, keep, new Date().toISOString()) as { n: number };
-  return Number(r.n);
-}

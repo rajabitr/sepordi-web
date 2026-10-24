@@ -27,7 +27,7 @@ export async function GET(
   _req: Request,
   ctx: { params: Promise<{ orderId: string; evidenceId: string }> },
 ): Promise<Response> {
-  const seller = await getSeller();
+  const seller = await getSeller("orders.view");
   if (!seller) return plain(401);
   const { orderId, evidenceId } = await ctx.params;
   if (!UUID_RE.test(orderId) || !UUID_RE.test(evidenceId)) return plain(404);

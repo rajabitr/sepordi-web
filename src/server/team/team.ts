@@ -8,18 +8,19 @@ import { isAdminUser } from "@/server/auth/session";
 import { getDb, tx } from "@/server/db";
 import { invites, members, users, type MemberRole, type ShopInviteRow, type TeamMember } from "@/server/db/repo";
 
+import { isMemberRole } from "./roles";
+
 /*
  * Every function takes the acting shop's id from the caller's session; ids of members and invites arrive from the
  * browser and are only ever matched together with that shop id.
  */
 
-export const OTHER_SHOP_FA = "این شماره در سپردی فروشگاه خودش را دارد یا عضو تیم فروشگاه دیگری است. هر شماره فعلاً فقط در یک فروشگاه می‌تواند باشد.";
 export const LAST_OWNER_FA = "فروشگاه دست‌کم یک مالک لازم دارد؛ اول یک نفر دیگر را مالک کنید.";
 
 type Done<T = null> = { ok: true; data: T } | ActionFailure;
 
 export function parseRole(v: unknown): MemberRole | null {
-  return v === "owner" || v === "agent" ? v : null;
+  return isMemberRole(v) ? v : null;
 }
 
 export function teamOf(shopId: string): { members: TeamMember[]; invites: ShopInviteRow[] } {
@@ -38,9 +39,7 @@ export function inviteMember(shopId: string, invitedBy: string, rawPhone: unknow
     const user = users.byPhone(phone);
     if (user) {
       if (isAdminUser(user)) return { ok: false, field: "phone", message: "این شماره برای پشتیبانی سپردی است و نمی‌تواند عضو تیم شود." };
-      const current = members.shopFor(user.id);
-      if (current?.shop.id === shopId) return { ok: false, field: "phone", message: "این شماره همین حالا عضو تیم شماست." };
-      if (current) return { ok: false, field: "phone", message: OTHER_SHOP_FA };
+      if (members.get(shopId, user.id)) return { ok: false, field: "phone", message: "این شماره همین حالا عضو تیم شماست." };
     }
     if (invites.pendingFor(shopId, phone)) return { ok: false, field: "phone", message: "برای این شماره یک دعوت باز دارید." };
     return { ok: true, data: invites.create({ shopId, phone, role, invitedBy }) };
@@ -80,17 +79,21 @@ export function removeMember(shopId: string, actorId: string, memberId: unknown)
 }
 
 /**
- * Called on every sign-in and signup step: the oldest open invite for the user's number makes them a member. A
- * user already in a shop keeps it; the invite stays open for its owner to cancel.
+ * Called on every sign-in and signup step: every open invite for the user's number makes them a member of that
+ * shop, alongside any shop they already have.
  */
 export function acceptPendingInvite(userId: string): "joined" | "none" {
   return tx(getDb(), () => {
     const user = users.byId(userId);
-    if (!user || isAdminUser(user) || members.shopFor(user.id)) return "none";
-    const invite = invites.oldestPendingForPhone(user.phone);
-    if (!invite) return "none";
-    members.add(invite.shop_id, user.id, invite.role);
-    invites.markAccepted(invite.id);
-    return "joined";
+    if (!user || isAdminUser(user)) return "none";
+    let joined = false;
+    for (const invite of invites.pendingForPhone(user.phone)) {
+      if (!members.get(invite.shop_id, user.id)) {
+        members.add(invite.shop_id, user.id, invite.role);
+        joined = true;
+      }
+      invites.markAccepted(invite.id);
+    }
+    return joined ? "joined" : "none";
   });
 }

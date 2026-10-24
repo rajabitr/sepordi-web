@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import * as React from "react";
-import { Bell, Cable, CheckCheck, Download, MessagesSquare, Receipt, ShoppingBag, Undo2, Wallet, type LucideIcon } from "lucide-react";
+import { Bell, Cable, CalendarClock, CheckCheck, Download, MessageCircle, MessagesSquare, Receipt, Settings2, ShoppingBag, Undo2, Wallet, type LucideIcon } from "lucide-react";
 
 import { Popover } from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -15,7 +15,7 @@ import { markAllNotificationsReadAction, markNotificationReadAction } from "./ac
 /** One row of GET /api/notifications. */
 interface BellItem {
   id: string;
-  kind: "handoff" | "order" | "receipt" | "credit" | "channel" | "case" | "import";
+  kind: "handoff" | "message" | "order" | "receipt" | "credit" | "channel" | "case" | "import" | "booking";
   title: string;
   description?: string;
   href: string;
@@ -25,12 +25,14 @@ interface BellItem {
 
 const ICONS: Record<BellItem["kind"], LucideIcon> = {
   handoff: MessagesSquare,
+  message: MessageCircle,
   order: ShoppingBag,
   receipt: Receipt,
   credit: Wallet,
   channel: Cable,
   case: Undo2,
   import: Download,
+  booking: CalendarClock,
 };
 
 const POLL_MS = 30_000;
@@ -165,6 +167,14 @@ export function NotificationBell({ className }: { className?: string }) {
           </ul>
         )}
       </div>
+      <Link
+        href="/panel/settings/notifications"
+        onClick={() => setOpen(false)}
+        className="flex min-h-11 items-center justify-center gap-2 border-t border-border px-4 text-sm text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:bg-secondary focus-visible:outline-none"
+      >
+        <Settings2 className="size-4" strokeWidth={1.5} />
+        تنظیم اعلان‌ها
+      </Link>
     </Popover>
   );
 }

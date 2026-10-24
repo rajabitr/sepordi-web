@@ -2,12 +2,14 @@
 
 import * as React from "react";
 
+import { Bot, Hand, MessagesSquare, ShoppingBag, type LucideIcon } from "lucide-react";
+
 import { AreaChart } from "@/components/charts/area-chart";
 import { BarChart } from "@/components/charts/bar-chart";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Stat } from "@/components/ui/stat";
 import { formatDateShort } from "@/lib/date";
-import { faNumber } from "@/lib/utils";
+import { cn, faNumber } from "@/lib/utils";
 
 export interface StatsDay {
   date: string;
@@ -19,12 +21,15 @@ export interface StatsDay {
 
 type Key = Exclude<keyof StatsDay, "date">;
 
-const CARDS: { key: Key; label: string }[] = [
-  { key: "conversations_started", label: "گفت‌وگوهای جدید" },
-  { key: "automated_replies", label: "پاسخ‌های خودکار" },
-  { key: "handoffs", label: "تحویل به شما" },
-  { key: "orders_created", label: "سفارش‌های ثبت‌شده" },
+/** Each card's chip is tinted like its chart series, so a number and its line read as one. */
+const CARDS: { key: Key; label: string; series: string; icon: LucideIcon; chip: string; color: string }[] = [
+  { key: "conversations_started", label: "گفت‌وگوهای جدید", series: "گفت‌وگوی جدید", icon: MessagesSquare, chip: "border border-border bg-surface-cream text-surface-cream-foreground", color: "var(--chart-1)" },
+  { key: "automated_replies", label: "پاسخ‌های خودکار", series: "پاسخ خودکار", icon: Bot, chip: "bg-accent-rose-soft text-accent-rose-ink", color: "var(--chart-2)" },
+  { key: "handoffs", label: "تحویل به شما", series: "تحویل به شما", icon: Hand, chip: "bg-accent-peach-soft text-accent-peach-ink", color: "var(--chart-4)" },
+  { key: "orders_created", label: "سفارش‌های ثبت‌شده", series: "سفارش", icon: ShoppingBag, chip: "bg-surface-lavender text-brand-ink", color: "var(--chart-3)" },
 ];
+
+const seriesOf = (...keys: Key[]) => keys.flatMap((k) => CARDS.filter((c) => c.key === k).map((c) => ({ key: c.key, label: c.series, color: c.color })));
 
 const sum = (days: StatsDay[], k: Key) => days.reduce((n, d) => n + (Number(d[k]) || 0), 0);
 
@@ -63,7 +68,15 @@ export function StatsView({ days }: { days: StatsDay[] }) {
           const now = sum(current, c.key);
           const before = sum(previous, c.key);
           const delta = previous.length === n && before > 0 ? ((now - before) / before) * 100 : undefined;
-          return <Stat key={c.key} label={c.label} value={faNumber(now)} delta={delta} deltaLabel={`نسبت به ${range === "7" ? "۷" : "۳۰"} روز قبل`} />;
+          const label = (
+            <span className="flex items-center gap-2">
+              <span aria-hidden className={cn("flex size-8 shrink-0 items-center justify-center rounded-lg", c.chip)}>
+                <c.icon className="size-4" strokeWidth={2} />
+              </span>
+              {c.label}
+            </span>
+          );
+          return <Stat key={c.key} label={label} value={faNumber(now)} delta={delta} deltaLabel={`نسبت به ${range === "7" ? "۷" : "۳۰"} روز قبل`} />;
         })}
       </div>
 
@@ -82,10 +95,7 @@ export function StatsView({ days }: { days: StatsDay[] }) {
               xFormat={dayLabel}
               format={(v) => faNumber(v)}
               height={240}
-              series={[
-                { key: "conversations_started", label: "گفت‌وگوی جدید" },
-                { key: "automated_replies", label: "پاسخ خودکار" },
-              ]}
+              series={seriesOf("conversations_started", "automated_replies")}
             />
           </div>
           <div className="rounded-surface border border-border bg-card p-4 lg:col-span-2">
@@ -97,10 +107,7 @@ export function StatsView({ days }: { days: StatsDay[] }) {
               xFormat={dayLabel}
               format={(v) => faNumber(v)}
               height={240}
-              series={[
-                { key: "orders_created", label: "سفارش" },
-                { key: "handoffs", label: "تحویل به شما" },
-              ]}
+              series={seriesOf("orders_created", "handoffs")}
             />
           </div>
         </div>

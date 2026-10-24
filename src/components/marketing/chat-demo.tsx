@@ -57,7 +57,7 @@ function Bubble({ from, children, muted }: { from: "customer" | "assistant"; chi
       <div
         className={cn(
           "max-w-xs rounded-2xl px-4 py-2 text-sm leading-6",
-          from === "customer" && "rounded-ss-md bg-secondary text-secondary-foreground",
+          from === "customer" && "rounded-ss-md bg-surface-lavender text-surface-lavender-foreground",
           from === "assistant" && (muted ? "rounded-se-md bg-accent text-accent-foreground" : "rounded-se-md bg-primary text-primary-foreground"),
         )}
       >
@@ -88,11 +88,11 @@ function Invoice() {
 function Receipt() {
   return (
     <div className="flex justify-start" style={{ animation: "slide-in 0.3s cubic-bezier(0.16,1,0.3,1) both" }}>
-      <div className="flex w-48 flex-col overflow-hidden rounded-2xl rounded-ss-md bg-secondary">
-        <div className="flex aspect-video items-center justify-center bg-muted text-muted-foreground">
+      <div className="flex w-48 flex-col overflow-hidden rounded-2xl rounded-ss-md bg-surface-lavender">
+        <div className="flex aspect-video items-center justify-center bg-accent-peach-soft text-accent-peach-ink">
           <ImageIcon strokeWidth={1.5} aria-hidden className="size-8" />
         </div>
-        <p className="px-4 py-2 text-xs leading-6 text-secondary-foreground">عکس رسید کارت‌به‌کارت</p>
+        <p className="px-4 py-2 text-xs leading-6 text-surface-lavender-foreground">عکس رسید کارت‌به‌کارت</p>
       </div>
     </div>
   );

@@ -20,7 +20,7 @@ function fail(status: number, message: string, requestId?: string) {
 export async function POST(request: Request) {
   if (!sameOrigin(request)) return fail(403, "درخواست نامعتبر است.");
   if (Number(request.headers.get("content-length") ?? 0) > MAX_FILE_BYTES + 64 * 1024) return fail(413, "حجم فایل باید کمتر از ۱۰ مگابایت باشد.");
-  const seller = await getSeller();
+  const seller = await getSeller("products.edit");
   if (!seller) return fail(401, "نشست شما تمام شده است. دوباره وارد شوید.");
 
   let form: FormData;

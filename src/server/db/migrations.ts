@@ -146,4 +146,100 @@ export const MIGRATIONS: { id: number; name: string; sql: string }[] = [
       CREATE INDEX shop_invites_phone ON shop_invites (phone, created_at) WHERE accepted_at IS NULL;
     `,
   },
+  {
+    id: 4,
+    name: "member_role_presets",
+    // SQLite cannot change a CHECK: both tables are rebuilt. The shops trigger names shop_members, so it is dropped
+    // first and recreated after the rename.
+    sql: `
+      DROP TRIGGER shops_creator_is_owner;
+
+      ALTER TABLE shop_members RENAME TO shop_members_v3;
+      CREATE TABLE shop_members (
+        shop_id    TEXT NOT NULL REFERENCES shops (id) ON DELETE CASCADE,
+        user_id    TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        role       TEXT NOT NULL CHECK (role IN ('owner', 'agent', 'responder', 'finance', 'fulfillment')),
+        created_at TEXT NOT NULL,
+        UNIQUE (shop_id, user_id)
+      );
+      INSERT INTO shop_members (shop_id, user_id, role, created_at) SELECT shop_id, user_id, role, created_at FROM shop_members_v3;
+      DROP TABLE shop_members_v3;
+      CREATE INDEX shop_members_user ON shop_members (user_id, created_at);
+
+      CREATE TRIGGER shops_creator_is_owner AFTER INSERT ON shops
+      BEGIN
+        INSERT OR IGNORE INTO shop_members (shop_id, user_id, role, created_at) VALUES (NEW.id, NEW.user_id, 'owner', NEW.created_at);
+      END;
+
+      ALTER TABLE shop_invites RENAME TO shop_invites_v3;
+      CREATE TABLE shop_invites (
+        id          TEXT PRIMARY KEY,
+        shop_id     TEXT NOT NULL REFERENCES shops (id) ON DELETE CASCADE,
+        phone       TEXT NOT NULL,
+        role        TEXT NOT NULL CHECK (role IN ('owner', 'agent', 'responder', 'finance', 'fulfillment')),
+        invited_by  TEXT REFERENCES users (id) ON DELETE SET NULL,
+        created_at  TEXT NOT NULL,
+        accepted_at TEXT
+      );
+      INSERT INTO shop_invites SELECT id, shop_id, phone, role, invited_by, created_at, accepted_at FROM shop_invites_v3;
+      DROP TABLE shop_invites_v3;
+      CREATE UNIQUE INDEX shop_invites_pending ON shop_invites (shop_id, phone) WHERE accepted_at IS NULL;
+      CREATE INDEX shop_invites_phone ON shop_invites (phone, created_at) WHERE accepted_at IS NULL;
+    `,
+  },
+  {
+    id: 5,
+    name: "session_current_shop",
+    // NULL = the user's oldest membership. Never trusted alone: every request re-checks it against shop_members.
+    sql: `ALTER TABLE sessions ADD COLUMN shop_id TEXT REFERENCES shops (id) ON DELETE SET NULL;`,
+  },
+  {
+    id: 6,
+    name: "two_step_login",
+    // secret_enc is AES-256-GCM under a key derived from SESSION_SECRET. last_step is the newest accepted time step:
+    // a code is good once. A row with enabled_at NULL is an enrolment not yet confirmed.
+    sql: `
+      CREATE TABLE user_totp (
+        user_id    TEXT PRIMARY KEY REFERENCES users (id) ON DELETE CASCADE,
+        secret_enc TEXT NOT NULL,
+        enabled_at TEXT,
+        last_step  INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      );
+
+      CREATE TABLE user_recovery_codes (
+        user_id    TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        code_hash  TEXT NOT NULL,
+        used_at    TEXT,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (user_id, code_hash)
+      );
+
+      CREATE TABLE login_challenges (
+        token_hash TEXT PRIMARY KEY,
+        user_id    TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+        expires_at TEXT NOT NULL,
+        attempts   INTEGER NOT NULL DEFAULT 0,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX login_challenges_user ON login_challenges (user_id);
+    `,
+  },
+  {
+    id: 7,
+    name: "activity_log",
+    sql: `
+      CREATE TABLE activity_log (
+        id          TEXT PRIMARY KEY,
+        shop_id     TEXT NOT NULL REFERENCES shops (id) ON DELETE CASCADE,
+        user_id     TEXT REFERENCES users (id) ON DELETE SET NULL,
+        action      TEXT NOT NULL,
+        target_type TEXT,
+        target_id   TEXT,
+        meta        TEXT CHECK (meta IS NULL OR json_valid(meta)),
+        created_at  TEXT NOT NULL
+      );
+      CREATE INDEX activity_log_shop ON activity_log (shop_id, created_at);
+    `,
+  },
 ];

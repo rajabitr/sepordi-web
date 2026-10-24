@@ -9,9 +9,10 @@ import {
   getProduct,
   listCatalogImportJobRows,
 } from "@/server/bizin/client";
+import { recordActivity } from "@/server/audit";
 import { isBizinError } from "@/server/bizin/error";
 import { toFarsiError } from "@/server/bizin/errors-fa";
-import { buildImageImportCsv } from "@/server/product-images/csv";
+import { buildImageImportCsv, stockMoved } from "@/server/product-images/csv";
 import { beginSend, getProductImages, publicImagePath } from "@/server/product-images/store";
 
 import { authorize, fail, okJson } from "../respond";
@@ -59,10 +60,15 @@ export async function POST(request: Request, ctx: { params: Promise<{ ext: strin
         const first = page?.rows[0]?.errors[0];
         throw new Refused(first ? `محصول ثبت نشد: ${importRowErrorFa(first)}` : "محصول ثبت نشد. صفحه را تازه کنید و دوباره امتحان کنید.");
       }
+      if (stockMoved(product, await getProduct(ext, productExt))) {
+        await cancelCatalogImportJob(ext, job.id).catch(() => undefined);
+        throw new Refused("همین حالا موجودی این محصول تغییر کرد؛ احتمالاً فروشی ثبت شد. عکس‌ها فرستاده نشد تا آن فروش از بین نرود. دوباره «فرستادن» را بزنید.");
+      }
       await commitCatalogImportJob(ext, job.id);
       return job.id;
     });
     if (!sent.ok) return fail(sent.status, sent.message);
+    recordActivity(seller, "product.images", { type: "product", id: productExt });
   } catch (e) {
     if (e instanceof Refused) return fail(422, e.message);
     const f = toFarsiError(e);

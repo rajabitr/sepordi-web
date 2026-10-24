@@ -8,13 +8,13 @@ import { Ellipsis } from "lucide-react";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 
-import { isActive, navFor, type PanelRole } from "./nav";
+import { isActive, navFor, type EntitledSection, type PanelRole } from "./nav";
 
 /** Desktop sidebar links. `pathname` null renders the static (no active item) state used as a Suspense fallback. */
-export function PanelSidebarNav({ pathname, role }: { pathname?: string | null; role?: PanelRole }) {
+export function PanelSidebarNav({ pathname, role, hidden }: { pathname?: string | null; role?: PanelRole; hidden?: EntitledSection[] }) {
   return (
     <nav aria-label="منوی پنل" className="flex flex-col gap-6">
-      {navFor(role).map((group) => (
+      {navFor(role, hidden).map((group) => (
         <div key={group.title} className="flex flex-col gap-1">
           <p className="px-3 pb-1 text-sm text-muted-foreground">{group.title}</p>
           {group.items.map(({ href, label, icon: Icon }) => {
@@ -41,14 +41,14 @@ export function PanelSidebarNav({ pathname, role }: { pathname?: string | null; 
   );
 }
 
-export function PanelSidebarNavLive({ role }: { role: PanelRole }) {
-  return <PanelSidebarNav pathname={usePathname()} role={role} />;
+export function PanelSidebarNavLive({ role, hidden }: { role: PanelRole; hidden?: EntitledSection[] }) {
+  return <PanelSidebarNav pathname={usePathname()} role={role} hidden={hidden} />;
 }
 
 /** Mobile bottom bar: the primary sections plus «بیشتر», which opens the rest in a bottom sheet. */
-export function PanelBottomNav({ pathname, role }: { pathname?: string | null; role?: PanelRole }) {
+export function PanelBottomNav({ pathname, role, hidden }: { pathname?: string | null; role?: PanelRole; hidden?: EntitledSection[] }) {
   const [open, setOpen] = useState(false);
-  const items = navFor(role).flatMap((g) => g.items);
+  const items = navFor(role, hidden).flatMap((g) => g.items);
   const primary = items.filter((i) => i.primary);
   const rest = items.filter((i) => !i.primary);
   const moreActive = rest.some((i) => isActive(pathname ?? null, i.href));
@@ -108,6 +108,6 @@ export function PanelBottomNav({ pathname, role }: { pathname?: string | null; r
   );
 }
 
-export function PanelBottomNavLive({ role }: { role: PanelRole }) {
-  return <PanelBottomNav pathname={usePathname()} role={role} />;
+export function PanelBottomNavLive({ role, hidden }: { role: PanelRole; hidden?: EntitledSection[] }) {
+  return <PanelBottomNav pathname={usePathname()} role={role} hidden={hidden} />;
 }
