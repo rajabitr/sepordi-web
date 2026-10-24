@@ -71,6 +71,39 @@ brand/source/      owner's logo files (PNG, JPG, PSD)
 public/brand/      traced SVG logos and app icons
 ```
 
+### Deploy (CI/CD)
+
+Nothing deploys from a laptop (`deploy/deploy.sh` only says so). A push to `main` runs `.github/workflows/deploy.yml`:
+type check, lint, tests, `npm run build`, `deploy/package.sh`, then a force-push of one orphan commit
+(`release.tgz`, `manifest.json`, and `env.enc` when present) to the `deploy` branch. The VM sits behind NAT, so it
+pulls: `sepordi-pull-deploy.timer` runs `deploy/server/sepordi-pull-deploy.sh` every minute, which fetches that branch
+over SSH with a read-only deploy key, checks the sha256, extracts to `/opt/sepordi/releases/<stamp>-<sha>`, backs up
+the database (`VACUUM INTO /var/lib/sepordi/backups/pre-<sha>-<stamp>.db`, newest 10 kept) before every switch,
+switches `/opt/sepordi/current`, restarts and waits for `/api/health` to report the new sha. A release that fails is
+rolled back and never retried; ship a fix (or an empty commit) to try again. The newest 3 releases are kept.
+
+- **Roll back:** Actions → `deploy` → Run workflow with `ref` = an older commit or tag. The env bundle always comes
+  from `main`, so a rollback never restores old env values.
+- **Status:** the Actions run (its `verify` job waits up to 6 minutes for `https://sepordi.ir/api/health` to report
+  the built sha), the `version` in `/api/health`, and on the VM `journalctl -u sepordi-pull-deploy` and
+  `/var/lib/sepordi-deploy/status.json` / `env-status.json`.
+- **First setup on the VM (once, as root):** `bash deploy/server/install-pull-deploy.sh`. Add the printed public key
+  as a read-only deploy key on the repo and commit the printed cert as `deploy/env-cert.pem`.
+
+**Env changes** travel the same way, sealed to the VM's key. On any laptop with OpenSSL 3:
+
+```bash
+deploy/encrypt-env.sh KAVENEGAR_API_KEY=@~/kavenegar.txt PUBLIC_BASE_URL=https://sepordi.ir
+git add deploy/env.enc && git commit -m "chore(env): …" && git push
+```
+
+Only `KAVENEGAR_API_KEY KAVENEGAR_TEMPLATE ZARINPAL_MERCHANT_ID ZARINPAL_SANDBOX SEPORDI_ADMIN_PHONES
+BIZIN_PARTNER_KEY BIZIN_WEBHOOK_SECRETS PUBLIC_BASE_URL` are accepted, values are single lines, and `NAME=@file`
+keeps a secret out of shell history. Each run **replaces** `env.enc` with exactly the keys given: keys left out keep
+their current value on the VM, `NAME=` sets an empty one. The VM merges the bundle into `/etc/sepordi/env` (other
+keys untouched), restarts and health-checks; if the app does not come up, the previous env is restored. A bundle
+that fails to decrypt or validate is logged and skipped; code deploys carry on. Values are never logged.
+
 ### Notices
 
 UI components come from [VibeFarsi](https://vibefarsi.ir) (MIT). See `THIRD_PARTY_NOTICES.md`.

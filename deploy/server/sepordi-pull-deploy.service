@@ -1,0 +1,11 @@
+[Unit]
+Description=sepordi.ir pull-deploy (fetch the deploy branch, switch release, apply the sealed env)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+ExecStart=/usr/local/sbin/sepordi-pull-deploy
+# A slow link may stretch the fetch; the health checks need at most 45 s each.
+TimeoutStartSec=15min

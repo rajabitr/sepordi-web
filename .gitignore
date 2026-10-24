@@ -40,3 +40,6 @@ yarn-error.log*
 /لوگوی سپردی/
 /pallete/
 /.deploy-wt/
+
+# CI release packaging (deploy/package.sh)
+/dist/

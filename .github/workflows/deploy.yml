@@ -1,0 +1,105 @@
+# Build, publish to the orphan `deploy` branch (release.tgz, manifest.json, the sealed env.enc), then wait for
+# the VM to pick it up.
+# The VM pulls (deploy/server/sepordi-pull-deploy.sh, every 60 s); nothing here connects to it.
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit, tag or branch to deploy (empty = the selected branch). An older commit is a rollback.
+        required: false
+        default: ""
+
+concurrency:
+  group: deploy
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      sha: ${{ steps.package.outputs.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.sha }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: npx tsc --noEmit --incremental false
+      - run: npx eslint . --max-warnings=0
+      - run: npx vitest run
+      - run: npm run build
+
+      - name: Take the env bundle from main
+        run: |
+          # Always main's bundle: a rollback to an older commit must not bring back older env values.
+          git fetch -q --depth 1 origin main
+          if git cat-file -e FETCH_HEAD:deploy/env.enc 2>/dev/null; then
+            git show FETCH_HEAD:deploy/env.enc > "$RUNNER_TEMP/env.enc"
+          fi
+          echo "ENV_ENC=$RUNNER_TEMP/env.enc" >> "$GITHUB_ENV"
+
+      - id: package
+        name: Package the release
+        run: |
+          bash deploy/package.sh
+          echo "sha=$(node -p "require('./dist/manifest.json').sha")" >> "$GITHUB_OUTPUT"
+          cat dist/manifest.json
+
+      - name: Publish to the deploy branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.package.outputs.sha }}
+        run: |
+          # One fresh orphan commit per release, force-pushed: the branch never accumulates history.
+          pub="$(mktemp -d)"
+          cp dist/release.tgz dist/manifest.json "$pub/"
+          if [ -f dist/env.enc ]; then cp dist/env.enc "$pub/"; fi
+          cd "$pub"
+          git init -q -b deploy
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -q -m "release $SHA (run $GITHUB_RUN_ID)"
+          auth="AUTHORIZATION: basic $(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=$auth" push -q --force \
+            "https://github.com/$GITHUB_REPOSITORY.git" HEAD:refs/heads/deploy
+          echo "published $SHA to the deploy branch"
+
+  verify:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Wait for sepordi.ir to report the new version
+        env:
+          SHA: ${{ needs.build.outputs.sha }}
+        run: |
+          deadline=$((SECONDS + 360))
+          seen=""
+          while :; do
+            # The query string keeps the CDN from answering with a cached copy.
+            body="$(curl -fsS -m 10 -H 'Cache-Control: no-cache' "https://sepordi.ir/api/health?v=$SHA&t=$(date +%s)" 2>/dev/null || true)"
+            seen="$(printf '%s' "$body" | jq -r '.version // empty' 2>/dev/null || true)"
+            echo "server version: ${seen:-unreachable}"
+            if [ "$seen" = "$SHA" ]; then
+              echo "sepordi.ir runs $SHA"
+              exit 0
+            fi
+            [ "$SECONDS" -ge "$deadline" ] && break
+            sleep 15
+          done
+          echo "::error::sepordi.ir did not pick up $SHA within 6 minutes (it reports ${seen:-nothing}). On the VM: journalctl -u sepordi-pull-deploy and /var/lib/sepordi-deploy/status.json."
+          exit 1
