@@ -14,6 +14,15 @@ Connection details for the VM live only in the git-ignored `server.txt` (HOST, P
   - Data: `/var/lib/sepordi` (SQLite `sepordi.db`, `media/`, `backups/`).
 - **The CDN rewrites headers:** it replaces our `Content-Security-Policy` with `upgrade-insecure-requests`. The origin sends the right CSP. To fix it, turn off the CDN's CSP / "upgrade insecure requests" injection.
 
+## Repository (2026-10-24)
+- `rajabitr/sepordi-web` is **public**, so GitHub Actions runs for free. It was created fresh from history that was rewritten to drop personal data.
+- The pre-rewrite history lives in **`rajabitr/sepordi-web-archive` (private)**. Never make that one public.
+- **Nothing secret is in git:**
+  - `server.txt`, `.env*`, `*.db` and `admin-login.secret.txt` are ignored.
+  - `deploy/env.enc` is encrypted to the VM's key.
+  - The partner key, webhook secret and SSH password exist only in the VM env and on the laptop.
+- **Before every push, scan:** `git diff --cached` for IPs, phone numbers, `bzp_…`, `whsec_…`.
+
 ## Status 2026-10-24 (owner left Iran; assume NO SSH)
 - The pull agent, the deploy key, the env cert, the daily backups and the wall-clock timer are installed and tested on the VM. A release and a sealed env were both applied end to end.
 - **GitHub Actions does not start yet:** "recent account payments have failed or your spending limit needs to be increased". The owner must fix billing (Settings → Billing & plans), or make the repo public, or add a self-hosted runner.
