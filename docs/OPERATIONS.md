@@ -14,6 +14,19 @@ Connection details for the VM live only in the git-ignored `server.txt` (HOST, P
   - Data: `/var/lib/sepordi` (SQLite `sepordi.db`, `media/`, `backups/`).
 - **The CDN rewrites headers:** it replaces our `Content-Security-Policy` with `upgrade-insecure-requests`. The origin sends the right CSP. To fix it, turn off the CDN's CSP / "upgrade insecure requests" injection.
 
+## Status 2026-10-24 (owner left Iran; assume NO SSH)
+- The pull agent, the deploy key, the env cert, the daily backups and the wall-clock timer are installed and tested on the VM. A release and a sealed env were both applied end to end.
+- **GitHub Actions does not start yet:** "recent account payments have failed or your spending limit needs to be increased". The owner must fix billing (Settings → Billing & plans), or make the repo public, or add a self-hosted runner.
+- Until then, publish with `deploy/publish-release.sh`. It runs the gates and the build locally and force-pushes the release to the `deploy` branch exactly like CI. It never touches the VM.
+- **Not self-updating:** the pull script and timer on the VM (`/usr/local/sbin/sepordi-pull-deploy`, `/etc/systemd/system/sepordi-pull-deploy.*`) only change with SSH. Changing `deploy/server/*` in git does nothing to the VM by itself.
+
+## Change server env without SSH
+`deploy/encrypt-env.sh NAME=value|NAME=@file …` seals to the VM's cert (`deploy/env-cert.pem`) into `deploy/env.enc`.
+- Each run REPLACES the bundle with exactly the names given; the VM merges them and never deletes other keys.
+- Commit, push, then publish (CI or `publish-release.sh`).
+- The VM decrypts, merges, restarts and writes `/var/lib/sepordi-deploy/env-status.json`.
+- Allowed names: `KAVENEGAR_API_KEY KAVENEGAR_TEMPLATE ZARINPAL_MERCHANT_ID ZARINPAL_SANDBOX SEPORDI_ADMIN_PHONES BIZIN_PARTNER_KEY BIZIN_WEBHOOK_SECRETS PUBLIC_BASE_URL`.
+
 ## Deploy = push to `main` (CI/CD; never from a laptop)
 1. GitHub Actions `.github/workflows/deploy.yml` runs `npm ci`, tsc, eslint, vitest and `next build`, then `deploy/package.sh`, then force-pushes `release.tgz` + `manifest.json` to the orphan branch `deploy`.
 2. The VM's timer `sepordi-pull-deploy.timer` (every 60 s, as root) runs `/usr/local/sbin/sepordi-pull-deploy`:

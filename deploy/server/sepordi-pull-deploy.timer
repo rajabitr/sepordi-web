@@ -2,8 +2,8 @@
 Description=Run sepordi-pull-deploy every minute
 
 [Timer]
-OnBootSec=1min
-OnUnitActiveSec=60s
+# A wall-clock schedule: OnUnitActiveSec stops rescheduling once the service is started by hand.
+OnCalendar=*-*-* *:*:00
 AccuracySec=5s
 
 [Install]
