@@ -59,7 +59,16 @@ if find "$STAGE" -name 'server.txt' | grep -q .; then echo "refusing: server.txt
 
 COPYFILE_DISABLE=1 tar --no-xattrs -C "$STAGE" -czf "$STAGE.tgz" .
 echo "release $REL ($(du -h "$STAGE.tgz" | cut -f1))"
-sshpass -e scp -q -P "$PORT" "$STAGE.tgz" "$LOGIN@$HOST:/tmp/sepordi-$REL.tgz"
+# The link to the VM is often slow and drops long transfers: rsync resumes a partial file on each retry.
+SSH_CMD="sshpass -e ssh -p $PORT -o ConnectTimeout=15 -o ServerAliveInterval=10 -o ServerAliveCountMax=3"
+for attempt in 1 2 3 4 5 6 7 8; do
+  if rsync -q --partial --inplace --timeout=60 -e "$SSH_CMD" "$STAGE.tgz" "$LOGIN@$HOST:/tmp/sepordi-$REL.tgz"; then
+    break
+  fi
+  [ "$attempt" = 8 ] && { echo "upload failed after $attempt attempts" >&2; exit 1; }
+  echo "upload interrupted (attempt $attempt), resuming…" >&2
+  sleep 5
+done
 remote "set -e
   d=/opt/sepordi/releases/$REL
   mkdir -p \"\$d\" && tar -xzf /tmp/sepordi-$REL.tgz -C \"\$d\" && rm -f /tmp/sepordi-$REL.tgz
