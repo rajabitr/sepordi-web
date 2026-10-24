@@ -25,8 +25,8 @@ Connection details for the VM live only in the git-ignored `server.txt` (HOST, P
 
 ## Status 2026-10-24 (owner left Iran; assume NO SSH)
 - The pull agent, the deploy key, the env cert, the daily backups and the wall-clock timer are installed and tested on the VM. A release and a sealed env were both applied end to end.
-- **GitHub Actions does not start yet:** "recent account payments have failed or your spending limit needs to be increased". The owner must fix billing (Settings → Billing & plans), or make the repo public, or add a self-hosted runner.
-- Until then, publish with `deploy/publish-release.sh`. It runs the gates and the build locally and force-pushes the release to the `deploy` branch exactly like CI. It never touches the VM.
+- **GitHub Actions works:** the repo is public, so account billing no longer blocks it. First run: push → build 1m34s → VM pull → verify 1m7s, giving the live version `784b429`.
+- **Fallback if Actions ever can't run:** `deploy/publish-release.sh`. It runs the gates and the build locally and force-pushes the release to the `deploy` branch exactly like CI. It never touches the VM.
 - **Not self-updating:** the pull script and timer on the VM (`/usr/local/sbin/sepordi-pull-deploy`, `/etc/systemd/system/sepordi-pull-deploy.*`) only change with SSH. Changing `deploy/server/*` in git does nothing to the VM by itself.
 
 ## Change server env without SSH
